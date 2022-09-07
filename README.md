@@ -1,5 +1,6 @@
 # observable memory
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/aecf554f0eb1452fabcf89d75ff4c874)](https://app.codacy.com/gh/BlurringShadow/observable_memory?utm_source=github.com&utm_medium=referral&utm_content=BlurringShadow/observable_memory&utm_campaign=Badge_Grade_Settings)
 [![Build-and-Test](https://github.com/BlurringShadow/observable_memory/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/BlurringShadow/observable_memory/actions/workflows/build-and-test.yml)
 ![wakatime](https://wakatime.com/badge/github/BlurringShadow/observable-memory.svg)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/060a0f776cb74c29a262cb45b75d65d7)](https://www.codacy.com/gh/BlurringShadow/observable_memory/dashboard?utm_source=github.com&utm_medium=referral&utm_content=BlurringShadow/observable_memory&utm_campaign=Badge_Grade)
