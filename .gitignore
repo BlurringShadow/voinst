@@ -372,4 +372,3 @@ CMakeSettings.json
 *-build/
 build-preview/
 .idea/
-**/*.clangd

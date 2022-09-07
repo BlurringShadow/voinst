@@ -18,7 +18,7 @@ jobs:
       matrix:
         os: [ubuntu-22.04, windows-latest]
         build-type: [Debug, Release]
-        coverage-file-path: [.build/tests/YOUR_PROJECT_NAMETestsCoverage.lcov]
+        coverage-file-path: [.build/tests/observable_memoryTestsCoverage.lcov]
         include:
           - os: ubuntu-22.04
             build-type: Release

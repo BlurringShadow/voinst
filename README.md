@@ -1,11 +1,10 @@
-# stdsharp
+# observable memory
 
-[![](https://github.com/BlurringShadow/stdsharp/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/BlurringShadow/stdsharp/actions/workflows/build-and-test.yml)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/f08b08ddd5e146c69b39ac5001f06c6a)](https://www.codacy.com/gh/BlurringShadow/stdsharp/dashboard?utm_source=github.com&utm_medium=referral&utm_content=BlurringShadow/stdsharp&utm_campaign=Badge_Grade)
-[![Codacy Badge](https://app.codacy.com/project/badge/Coverage/f08b08ddd5e146c69b39ac5001f06c6a)](https://www.codacy.com/gh/BlurringShadow/stdsharp/dashboard?utm_source=github.com&utm_medium=referral&utm_content=BlurringShadow/stdsharp&utm_campaign=Badge_Coverage)
-[![wakatime](https://wakatime.com/badge/github/BlurringShadow/stdsharp.svg)](https://wakatime.com/badge/github/BlurringShadow/stdsharp)
+[![Build-and-Test](https://github.com/BlurringShadow/observable_memory/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/BlurringShadow/observable_memory/actions/workflows/build-and-test.yml)
+![wakatime](https://wakatime.com/badge/github/BlurringShadow/observable-memory.svg)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/060a0f776cb74c29a262cb45b75d65d7)](https://www.codacy.com/gh/BlurringShadow/observable_memory/dashboard?utm_source=github.com&utm_medium=referral&utm_content=BlurringShadow/observable_memory&utm_campaign=Badge_Grade)
 
-An optimized and supplement library of fundamental features for standard c++. Headers are arranged in accordance with the standard library structure.
+Make all data in memory to be observable.
 
 <br/>
 
@@ -13,7 +12,7 @@ An optimized and supplement library of fundamental features for standard c++. He
 
 ### Prerequisites
 
-- **[CMake v3.22+](https://github.com/BlurringShadow/stdsharp/blob/main/CMakeLists.txt#L1)** - required for building
+- **CMake v3.22+** - required for building
 
 - **C++ Compiler** - needs to support at least the **C++20** and **partial C++23** standard, i.e. _MSVC_, _GCC_, _Clang_. You could checkout [github workflow file](.github/workflows/build.yml) for suitable compilers.
 
