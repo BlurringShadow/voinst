@@ -21,4 +21,24 @@ target_install(
     DEPENDENCIES GSL;foonathan_memory;stdsharp
 )
 
-# add_subdirectory(tests)
+get_directory_property(is_subproject PARENT_DIRECTORY)
+
+if(NOT is_subproject)
+    set(is_standalone YES)
+else()
+    set(is_standalone NO)
+endif()
+
+include(CMakeDependentOption)
+
+CMAKE_DEPENDENT_OPTION(${PROJECT_NAME}_BUILD_TEST "Whether to build test" ON "${is_standalone}" OFF)
+CMAKE_DEPENDENT_OPTION(${PROJECT_NAME}_INCLUDE_AS_SYSTEM "Whether to include headers as system headers" OFF "${is_standalone}" ON)
+
+if(${PROJECT_NAME}_INCLUDE_AS_SYSTEM)
+    target_include_as_system(${PROJECT_NAME} INTERFACE)
+endif()
+
+if(${PROJECT_NAME}_BUILD_TEST)
+    include(CTest)
+    add_subdirectory(tests)
+endif()
