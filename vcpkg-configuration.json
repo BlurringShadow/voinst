@@ -1,0 +1,12 @@
+{
+  "registries": [
+    {
+      "kind": "git",
+      "repository": "https://github.com/BlurringShadow/vcpkg-registry",
+      "baseline": "50d5c0f72011b352cea3960615ab06b1fdac9939",
+      "packages": [
+        "stdsharp"
+      ]
+    }
+  ]
+}
