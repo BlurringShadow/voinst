@@ -1,0 +1,73 @@
+name: cmake build and test
+description: use cmake to build project and run ctest
+
+inputs:
+  build-type:
+    description: cmake build type
+    required: true
+    default: Debug
+
+  build-dir:
+    description: cmake build directory
+    required: false
+    default: .build
+  config-option:
+    description: cmake config option
+    required: false
+
+  vcpkg-root:
+    description: vcpkg position
+    required: false
+    default: ${{ github.workspace }}/.vcpkg
+
+  before-build:
+    description: run before build
+    required: false
+
+runs:
+  using: composite
+
+  steps:
+    - name: Get latest CMake and ninja
+      uses: lukka/get-cmake@latest
+
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v10
+      with:
+        vcpkgGitCommitId: a2261f65ea979eebf56074f604776160f0074b09
+        vcpkgDirectory: ${{ inputs.vcpkg-root }}
+
+    - name: Run before cmake build
+      id: before-cmake-build
+      run: ${{ inputs.before-build }}
+      shell: bash
+
+    - name: Cache builds
+      id: cache-build
+      uses: actions/cache@v3
+      with:
+        path: |
+          ${{ inputs.build-dir }}
+          !${{ inputs.build-dir }}/CMakeCache.txt
+          !${{ inputs.build-dir }}/CMakeFiles
+          !${{ inputs.build-dir }}/clang-tidy-report
+        key: ${{ runner.os }}-${{ inputs.build-type }}
+
+    - name: Install dependencies and generate project files
+      id: cmake-config
+      run: cmake -S "${{ github.workspace }}" -B "${{ inputs.build-dir }}" -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -DCMAKE_TOOLCHAIN_FILE="${{ inputs.vcpkg-root }}/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=${{ inputs.build-type }} ${{ inputs.config-option }}
+      shell: bash
+
+    - uses: SimenB/github-actions-cpu-cores@v1
+      id: cpu-cores
+
+    - name: Build
+      run: |
+        cmake --build "${{ inputs.build-dir }}" --clean-first -j ${{ steps.cpu-cores.outputs.count }} | tee "${{ inputs.build-dir }}/cmake-build.log"
+        cat "${{ inputs.build-dir }}/cmake-build.log"
+      shell: bash
+
+    - name: Run test
+      working-directory: ${{ inputs.build-dir }}
+      run: ctest --output-on-failure -C ${{ inputs.build-type }} -j ${{ steps.cpu-cores.outputs.count }}
+      shell: bash

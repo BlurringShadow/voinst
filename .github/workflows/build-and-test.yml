@@ -2,76 +2,90 @@ name: Build-and-Test
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
+  # push:
+  #   branches: [main]
   pull_request:
-    branches: [main]
+    branches: [develop]
 
 jobs:
-  job:
-    name: ${{ matrix.os }} ${{ matrix.build-type }} build
+  linux-job:
+    name: Ubuntu
     runs-on: ${{ matrix.os }}
     continue-on-error: false
 
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
-        os: [ubuntu-22.04, windows-latest]
-        build-type: [Debug, Release]
-        coverage-file-path: [.build/tests/observable_memoryTestsCoverage.lcov]
+        os: [ubuntu-22.04]
         include:
           - os: ubuntu-22.04
-            build-type: Release
-            cmakeOptions: -DCMAKE_CXX_COMPILER=clang++
-          - os: ubuntu-22.04
-            build-type: Debug
-            cmakeOptions: -DCMAKE_CXX_COMPILER=clang++ -DENABLE_CODE_COVERAGE=true
-          - os: windows-latest
-            cmakeOptions: -DENABLE_CLANG_TIDY=false # disable clang-tidy on Windows for MSVC
+            llvm-ver: 15
 
     steps:
       - uses: actions/checkout@v2
 
-      - name: Upgrade Clang on Linux
-        if: ${{ runner.os == 'Linux' }}
-        run: |
-          sudo apt-get update
-          sudo apt-get upgrade clang
-
-      - name: Install Complete LLVM on Linux for cmake debug build
-        if: ${{ matrix.os == 'ubuntu-22.04' && matrix.build-type == 'Debug' }}
-        run: sudo apt-get install llvm
-
-      - name: Upgrade MSVC on Windows
-        if: ${{ runner.os == 'Windows' }}
-        working-directory: C:\Program Files (x86)\Microsoft Visual Studio\Installer
-        run: .\setup.exe update --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --installPath "C:\Program Files\Microsoft Visual Studio\2022\Enterprise" -q --norestart --installWhileDownloading
-        shell: pwsh
-
-      - name: CMake build and test
-        uses: ./.github/actions
+      - name: Fetch Clang
+        uses: ./.github/actions/apt-fetch-clang
         with:
-          build-type: ${{ matrix.build-type }}
-          config-option: ${{ matrix.cmakeOptions }}
+          llvm-ver: ${{ matrix.llvm-ver }}
 
-      - name: Check coverage file existence
-        id: check_coverage_file
-        uses: andstor/file-existence-action@v1
+      - name: Get cmake option
+        id: cmake-option
+        run: echo "cmake-option=-DVCPKG_TARGET_TRIPLET=x64-linux-clang -DVCPKG_HOST_TRIPLET=x64-linux-clang-dynamic -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=\"${{ github.workspace }}/.vcpkg/scripts/toolchains/linux-clang.cmake\"" >> $GITHUB_OUTPUT
+
+      - name: CMake build and test (Debug)
+        uses: ./.github/actions/cmake-build-and-test
         with:
-          files: ${{ matrix.coverage-file-path }}
+          config-option: ${{ steps.cmake-option.outputs.cmake-option }} -DCODE_COVERAGE_EXT="lcov" -DENABLE_CLANG_TIDY=true
+          before-build: \cp -rf ./cmake/vcpkg/* ./.vcpkg/
+          build-dir: .build/Debug
+
+      - name: CMake build and test (Release)
+        uses: ./.github/actions/cmake-build-and-test
+        with:
+          build-type: Release
+          config-option: ${{ steps.cmake-option.outputs.cmake-option }}
+          build-dir: .build/Release
 
       - name: Codacy Coverage Reporter
         uses: codacy/codacy-coverage-reporter-action@v1.3.0
-        if: steps.check_coverage_file.outputs.files_exists == 'true'
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          coverage-reports: ${{ matrix.coverage-file-path }}
+          coverage-reports: .build/Debug/tests/observalbe_memoryTestsCoverage.lcov
 
       - name: Codacy Analysis
-        if: steps.check_coverage_file.outputs.files_exists == 'true'
         uses: codacy/codacy-analysis-cli-action@master
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           upload: true
           run-docker-tools: false
-          clang-tidy-output: ".build/cmake-build.log"
+          clang-tidy-output: ".build/Debug/cmake-build.log"
+
+  windows-job:
+    name: Windows
+    runs-on: ${{ matrix.os }}
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [windows-latest]
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Update MSVC
+        uses: ./.github/actions/update-msvc
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: CMake build and test (Debug)
+        uses: ./.github/actions/cmake-build-and-test
+        with:
+          build-dir: .build/Debug
+
+      - name: CMake build and test (Release)
+        uses: ./.github/actions/cmake-build-and-test
+        with:
+          build-type: Release
+          build-dir: .build/Release
