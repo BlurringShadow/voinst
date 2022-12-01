@@ -2,8 +2,8 @@ name: Build-and-Test
 
 on:
   workflow_dispatch:
-  # push:
-  #   branches: [main]
+  push:
+    branches: [main]
   pull_request:
     branches: [develop]
 
@@ -51,7 +51,7 @@ jobs:
         uses: codacy/codacy-coverage-reporter-action@v1.3.0
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          coverage-reports: .build/Debug/tests/observalbe_memoryTestsCoverage.lcov
+          coverage-reports: .build/Debug/tests/observable_memoryTestsCoverage.lcov
 
       - name: Codacy Analysis
         uses: codacy/codacy-analysis-cli-action@master
