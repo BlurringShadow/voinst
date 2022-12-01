@@ -15,14 +15,8 @@ target_link_libraries(
   observable_memory INTERFACE Microsoft.GSL::GSL foonathan_memory
                               stdsharp::stdsharp)
 
-target_install(
-  observable_memory
-  NAMESPACE
-  "observable_memory::"
-  COMPATIBILITY
-  SameMajorVersion
-  DEPENDENCIES
-  GSL;foonathan_memory;stdsharp)
+target_install(observable_memory COMPATIBILITY SameMajorVersion DEPENDENCIES
+               GSL;foonathan_memory;stdsharp)
 
 get_directory_property(is_subproject PARENT_DIRECTORY)
 
