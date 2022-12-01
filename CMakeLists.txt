@@ -8,11 +8,12 @@ project(
 find_package(Microsoft.GSL CONFIG REQUIRED)
 find_package(foonathan_memory CONFIG REQUIRED)
 find_package(stdsharp CONFIG REQUIRED)
-
 include(stdsharp/Utils)
 
 config_lib(observable_memory INTERFACE)
-target_link_libraries(observable_memory INTERFACE GSL foonathan_memory stdsharp)
+target_link_libraries(
+  observable_memory INTERFACE Microsoft.GSL::GSL foonathan_memory
+                              stdsharp::stdsharp)
 
 target_install(
   observable_memory

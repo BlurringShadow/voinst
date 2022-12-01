@@ -3,7 +3,7 @@
     {
       "kind": "git",
       "repository": "https://github.com/BlurringShadow/vcpkg-registry",
-      "baseline": "816c799f0229a814802ed5a545b64578f15f15e2",
+      "baseline": "2703c405adc87f21b0ce28c261f9eb12ed3b6ea8",
       "packages": [
         "stdsharp"
       ]
