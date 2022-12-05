@@ -2,7 +2,7 @@
   "name": "observable-memory",
   "version": "0.1.0",
   "dependencies": [
-    "foonathan-memory",
+    "mimalloc",
     "ms-gsl",
     "stdsharp",
     "catch2"

@@ -6,17 +6,16 @@ project(
   LANGUAGES CXX)
 
 find_package(Microsoft.GSL CONFIG REQUIRED)
-find_package(foonathan_memory CONFIG REQUIRED)
+find_package(mimalloc CONFIG REQUIRED)
 find_package(stdsharp CONFIG REQUIRED)
 include(stdsharp/Utils)
 
 config_lib(observable_memory INTERFACE)
-target_link_libraries(
-  observable_memory INTERFACE Microsoft.GSL::GSL foonathan_memory
-                              stdsharp::stdsharp)
+target_link_libraries(observable_memory INTERFACE Microsoft.GSL::GSL mimalloc
+                                                  stdsharp::stdsharp)
 
 target_install(observable_memory COMPATIBILITY SameMajorVersion DEPENDENCIES
-               GSL;foonathan_memory;stdsharp)
+               GSL;mimalloc;stdsharp)
 
 get_directory_property(is_subproject PARENT_DIRECTORY)
 
