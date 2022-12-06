@@ -10,7 +10,7 @@ find_package(mimalloc CONFIG REQUIRED)
 find_package(stdsharp CONFIG REQUIRED)
 include(stdsharp/Utils)
 
-config_lib(observable_memory INTERFACE)
+config_lib(observable_memory INTERFACE std 23)
 target_link_libraries(observable_memory INTERFACE Microsoft.GSL::GSL mimalloc
                                                   stdsharp::stdsharp)
 
