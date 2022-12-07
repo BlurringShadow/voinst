@@ -3,8 +3,27 @@
   "version": "0.1.0",
   "dependencies": [
     "mimalloc",
+    {
+      "name": "foonathan-memory",
+      "version>=": "0.7.2"
+    },
     "ms-gsl",
     "stdsharp",
     "catch2"
-  ]
+  ],
+  "overrides": [],
+  "vcpkg-configuration": {
+    "registries": [
+      {
+        "kind": "git",
+        "repository": "https://github.com/BlurringShadow/vcpkg-registry",
+        "baseline": "c8bd3e64c20c37a7cf7dfb4413e4c23f6852cd9d",
+        "packages": [
+          "stdsharp",
+          "foonathan-memory"
+        ]
+      }
+    ]
+  },
+  "builtin-baseline": "163fe7bd3d67c41200617caaa245b5ba2ba854e6"
 }
