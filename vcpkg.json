@@ -16,8 +16,8 @@
     "registries": [
       {
         "kind": "git",
-        "repository": "https://github.com/BlurringShadow/vcpkg-registry",
-        "baseline": "c8bd3e64c20c37a7cf7dfb4413e4c23f6852cd9d",
+        "repository": "../vcpkg-registry",
+        "baseline": "05d3ea117f9717a6a691690e192d70e557c3de05",
         "packages": [
           "stdsharp",
           "foonathan-memory"
