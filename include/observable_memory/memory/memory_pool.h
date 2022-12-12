@@ -1,10 +1,12 @@
 #pragma once
 
-#include <mimalloc.h>
 #include <stdsharp/filesystem/filesystem.h>
 #include <stdsharp/containers/containers.h>
+
 #include <foonathan/memory/memory_pool.hpp>
 #include <foonathan/memory/container.hpp>
+
+#include <mimalloc.h>
 
 namespace observable_memory
 {
@@ -47,7 +49,7 @@ namespace observable_memory
 
     inline constexpr ::std::size_t default_block_nodes_count = 1024;
 
-    template<typename PoolType, typename Allocator>
+    template<typename PoolType = memory::node_pool, typename Allocator = mi_raw_allocator>
     struct memory_pool : memory::memory_pool<PoolType, Allocator>
     {
         using base = memory::memory_pool<PoolType, Allocator>;
@@ -55,6 +57,33 @@ namespace observable_memory
         using base::base;
 
         using typename base::allocator_type;
+        using typename base::pool_type;
+
+        using base::min_node_size;
+        using base::min_block_size;
+        using base::node_size;
+        using base::capacity_left;
+        using base::next_capacity;
+        using base::get_allocator;
+
+        void* allocate_node() { return base::allocate_node(); }
+
+        void* try_allocate_node() noexcept { return base::try_allocate_node(); }
+
+        void* allocate_array(std::size_t n) { return base::allocate_array(n); }
+
+        void* try_allocate_array(std::size_t n) noexcept { return base::try_allocate_array(n); }
+
+        void deallocate_node(void* ptr) noexcept { base::deallocate_node(ptr); }
+
+        bool try_deallocate_node(void* ptr) noexcept { return base::try_deallocate_node(ptr); }
+
+        void deallocate_array(void* ptr, std::size_t n) noexcept { base::deallocate_array(ptr, n); }
+
+        bool try_deallocate_array(void* ptr, std::size_t n) noexcept
+        {
+            return try_deallocate_array(ptr, n);
+        }
 
         template<typename... Args>
             requires ::std::constructible_from<Allocator, Args...>
@@ -167,5 +196,14 @@ namespace observable_memory
         return local{
             pool.template make_nested_object_pool<PoolType, T>(block_object_count) //
         };
+    };
+}
+
+namespace foonathan::memory
+{
+    template<typename PoolType, class Allocator>
+    struct allocator_traits<::observable_memory::memory_pool<PoolType, Allocator>> :
+        allocator_traits<memory_pool<PoolType, Allocator>>
+    {
     };
 }
