@@ -8,16 +8,16 @@ project(
 find_package(Microsoft.GSL CONFIG REQUIRED)
 find_package(mimalloc CONFIG REQUIRED)
 find_package(stdsharp CONFIG REQUIRED)
-find_package(foonathan_memory CONFIG REQUIRED)
+find_package(Boost REQUIRED COMPONENTS container)
 include(stdsharp/Utils)
 
 config_lib(observable_memory INTERFACE std 23)
 target_link_libraries(
   observable_memory INTERFACE Microsoft.GSL::GSL mimalloc stdsharp::stdsharp
-                              foonathan_memory)
+                              Boost::container)
 
 target_install(observable_memory COMPATIBILITY SameMajorVersion DEPENDENCIES
-               GSL;mimalloc;foonathan_memory;stdsharp)
+               Microsoft.GSL;mimalloc;stdsharp;Boost)
 
 get_directory_property(is_subproject PARENT_DIRECTORY)
 

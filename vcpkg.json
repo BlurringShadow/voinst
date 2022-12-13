@@ -3,13 +3,10 @@
   "version": "0.1.0",
   "dependencies": [
     "mimalloc",
-    {
-      "name": "foonathan-memory",
-      "version>=": "2022-11-28"
-    },
     "ms-gsl",
     "stdsharp",
-    "catch2"
+    "catch2",
+    "boost-container"
   ],
   "overrides": [],
   "vcpkg-configuration": {
@@ -19,8 +16,7 @@
         "repository": "https://github.com/BlurringShadow/vcpkg-registry.git",
         "baseline": "272b8e95a39b93332fb1db173cf003968820e5e7",
         "packages": [
-          "stdsharp",
-          "foonathan-memory"
+          "stdsharp"
         ]
       }
     ]
