@@ -9,14 +9,22 @@ void mi_redirect_to_catch2()
 
             std::string_view msg = in;
 
-            constexpr ctll::fixed_string prefix = "mimalloc: ";
+            constexpr auto prefix = "mimalloc: "sv;
 
-            if(!ctre::starts_with<prefix>(msg)) return;
+            if(!msg.starts_with(prefix)) return;
 
             msg.remove_prefix(prefix.size());
-            if(ctre::starts_with<"warning">(msg)) { WARN(msg); }
-            else if(ctre::starts_with<"error">(msg)) { FAIL(msg); }
-            else { INFO(msg); }
+            if(msg.starts_with("warning: "))
+            {
+                msg.remove_prefix("warning: "sv.size());
+                WARN(msg);
+            }
+            else if(msg.starts_with("error: "))
+            {
+                msg.remove_prefix("error: "sv.size());
+                FAIL(msg);
+            }
+            else INFO(msg);
         },
         nullptr
     );

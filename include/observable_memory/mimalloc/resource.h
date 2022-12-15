@@ -15,12 +15,12 @@
 
 namespace observable_memory
 {
-    namespace pmr =
+    namespace pmr = ::
 
 #if __cpp_lib_polymorphic_allocator >= 201902L
-        ::std::pmr
+        std::pmr
 #else
-        ::boost::container::pmr
+        boost::container::pmr
 #endif
         ;
     namespace mimalloc
