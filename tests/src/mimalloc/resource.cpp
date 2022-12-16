@@ -7,7 +7,7 @@ using namespace observable_memory;
 
 SCENARIO("mimalloc memory resource", "[mimalloc]") // NOLINT
 {
-    // mi_redirect_to_catch2();
+    mi_redirect_to_catch2();
 
     GIVEN("a default resource")
     {

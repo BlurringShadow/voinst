@@ -1,4 +1,6 @@
 #include "test.h"
+#include <iostream>
+#include <sstream>
 
 void mi_redirect_to_catch2()
 {
@@ -7,24 +9,57 @@ void mi_redirect_to_catch2()
         {
             using namespace stdsharp::literals;
 
-            std::string_view msg = in;
+            static thread_local enum { info, warning, error } level;
+
+            static thread_local std::string buffer;
 
             constexpr auto prefix = "mimalloc: "sv;
 
-            if(!msg.starts_with(prefix)) return;
+            std::string_view msg = in;
 
-            msg.remove_prefix(prefix.size());
-            if(msg.starts_with("warning: "))
+            buffer += msg;
+
+            if(msg.starts_with(prefix))
             {
-                msg.remove_prefix("warning: "sv.size());
-                WARN(msg);
+                msg.remove_prefix(prefix.size());
+                if(msg.starts_with("warning"))
+                {
+                    msg.remove_prefix(sizeof("warning") - 1);
+                    level = warning;
+                }
+                else if(msg.starts_with("error"))
+                {
+                    msg.remove_prefix(sizeof("error") - 1);
+                    level = error;
+                }
+                else level = info;
             }
-            else if(msg.starts_with("error: "))
+
+            if(buffer.ends_with('\n'))
             {
-                msg.remove_prefix("error: "sv.size());
-                FAIL(msg);
+                buffer.insert(0, "mimalloc: ");
+
+                switch(level)
+                {
+                case info:
+                {
+                    INFO(buffer);
+                    break;
+                }
+                case warning:
+                {
+                    WARN(buffer);
+                    break;
+                }
+                case error:
+                {
+                    FAIL(buffer);
+                    break;
+                }
+                }
             }
-            else INFO(msg);
+
+            buffer.clear();
         },
         nullptr
     );
