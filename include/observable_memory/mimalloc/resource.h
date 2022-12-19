@@ -1,12 +1,10 @@
 #pragma once
 
-#include <boost/container/pmr/pool_options.hpp>
 #include <stdsharp/concepts/concepts.h>
 
 #if __cpp_lib_polymorphic_allocator >= 201902L
     #include <memory_resource>
 #else
-    #include <boost/container/pmr/memory_resource.hpp>
     #include <boost/container/pmr/synchronized_pool_resource.hpp>
     #include <boost/container/pmr/unsynchronized_pool_resource.hpp>
 #endif
@@ -76,18 +74,6 @@ namespace observable_memory
         {
             static memory_resource_adapter<details::mi_memory_resource> resource{};
             return resource;
-        }
-
-        template<::std::constructible_from<const pmr::pool_options&, pmr::memory_resource*> T>
-        T get_resource(const pmr::pool_options& option) noexcept(
-            ::stdsharp::nothrow_constructible_from<
-                T,
-                const pmr::pool_options&,
-                pmr::memory_resource* // clang-format off
-            > // clang-format on
-        )
-        {
-            return {option, &get_default_resource()};
         }
     }
 }
