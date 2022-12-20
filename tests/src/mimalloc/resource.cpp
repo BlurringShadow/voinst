@@ -1,12 +1,26 @@
 #include "observable_memory/mimalloc/resource.h"
 #include "test.h"
 
+#include <boost/container/pmr/resource_adaptor.hpp>
+#include <catch2/catch_message.hpp>
+
 using namespace std;
 using namespace observable_memory;
 
 SCENARIO("mimalloc memory resource", "[mimalloc]") // NOLINT
 {
-    GIVEN("a default resource")
+    GIVEN("resource, another_resource, two default resource")
+    {
+        auto& resource = mimalloc::get_default_resource();
+        auto& another_resource = mimalloc::get_default_resource();
+
+        THEN("all default resource should be equal and same")
+        {
+            REQUIRE(resource == another_resource);
+        }
+    }
+
+    GIVEN("resource, a default resource")
     {
         auto& resource = mimalloc::get_default_resource();
 
@@ -21,7 +35,7 @@ SCENARIO("mimalloc memory resource", "[mimalloc]") // NOLINT
         }
     }
 
-    GIVEN("construct a synchronized pool resource from default resource")
+    GIVEN("pool_resource, construct a synchronized pool resource from default resource")
     {
         pmr::synchronized_pool_resource pool_resource{&mimalloc::get_default_resource()};
 

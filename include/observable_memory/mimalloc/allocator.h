@@ -5,9 +5,11 @@
 namespace observable_memory::mimalloc
 {
     template<typename T>
-    auto& get_default_allocator() noexcept
+    using default_allocator = pmr::polymorphic_allocator<T>;
+
+    template<typename T>
+    [[nodiscard]] default_allocator<int> get_default_allocator() noexcept
     {
-        static pmr::polymorphic_allocator<T> alloc{get_default_resource()};
-        return alloc;
+        return {&get_default_resource()};
     }
 }
