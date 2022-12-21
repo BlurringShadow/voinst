@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <initializer_list>
 #include <span>
 
 #include "observable_memory/mimalloc/allocator.h"
@@ -55,6 +54,30 @@ SCENARIO("mimalloc allocator", "[mimalloc]") // NOLINT
                 std::ranges::copy(data_vec, my_vec.begin());
 
                 REQUIRE(std::ranges::equal(my_vec, data_vec));
+            }
+        }
+
+        GIVEN("a proxy allocator using the default int std allocator")
+        {
+            allocator<int> allocator;
+
+            mimalloc::proxy_allocator proxy_allocator{allocator};
+
+            THEN("allocate same size of ints from resource, and construct a span of ints")
+            {
+                span<int> span{proxy_allocator.allocate(data_vec.size()), data_vec.size()};
+
+                AND_THEN("assign the values to the span")
+                {
+                    std::ranges::copy(data_vec, span.begin());
+
+                    REQUIRE(std::ranges::equal(span, data_vec));
+
+                    AND_THEN("deallocate the pointer")
+                    {
+                        proxy_allocator.deallocate(span.data(), span.size());
+                    }
+                }
             }
         }
     }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mimalloc.h>
 #include <vector>
 #include <deque>
 #include <forward_list>
@@ -87,20 +88,5 @@ namespace observable_memory::mimalloc
     proxy_allocator(T&) -> proxy_allocator<T>;
 
     template<typename T>
-    class allocator : public proxy_allocator<pmr::polymorphic_allocator<T>>
-    {
-        [[nodiscard]] static constexpr auto& get_instance() noexcept
-        {
-            static pmr::polymorphic_allocator<T> alloc{&get_resource()};
-            return alloc;
-        }
-
-    public:
-        constexpr allocator() noexcept:
-            proxy_allocator<pmr::polymorphic_allocator<T>>(get_instance())
-        {
-        }
-
-        using is_always_equal = ::std::true_type;
-    };
+    using allocator = mi_stl_allocator<T>;
 }
