@@ -10,53 +10,51 @@ using namespace observable_memory;
 
 SCENARIO("mimalloc allocator", "[mimalloc]") // NOLINT
 {
-    using data_t = initializer_list<int>;
-
-    GIVEN("a default int allocator")
+    GIVEN("a vector of ints")
     {
-        auto allocator = mimalloc::get_allocator<int>();
+        using data_t = vector<int>;
 
-        AND_GIVEN("a vector of ints")
+        const auto& data_vec = GENERATE(data_t{42}, data_t{13, 2}, data_t{5, 6});
+
+        INFO(fmt::format("vector size: {}, values: {}", data_vec.size(), data_vec));
+
+        GIVEN("a default int allocator")
         {
-            auto vec = GENERATE(data_t{42}, data_t{13, 2}, data_t{5, 6});
+            mimalloc::allocator<int> allocator;
 
-            INFO(fmt::format("vector size: {}, values: {}", vec.size(), vec));
-
-            THEN("allocate same size of ints from resource, and construct a span of ints")
+            AND_GIVEN("a vector of ints")
             {
-                span<int> span{allocator.allocate(vec.size()), vec.size()};
+                INFO(fmt::format("vector size: {}, values: {}", data_vec.size(), data_vec));
 
-                AND_THEN("assign the values to the span")
+                THEN("allocate same size of ints from resource, and construct a span of ints")
                 {
-                    std::ranges::copy(vec, span.begin());
+                    span<int> span{allocator.allocate(data_vec.size()), data_vec.size()};
 
-                    REQUIRE(std::ranges::equal(span, vec));
-
-                    AND_THEN("deallocate the pointer")
+                    AND_THEN("assign the values to the span")
                     {
-                        allocator.deallocate(span.data(), span.size());
+                        std::ranges::copy(data_vec, span.begin());
+
+                        REQUIRE(std::ranges::equal(span, data_vec));
+
+                        AND_THEN("deallocate the pointer")
+                        {
+                            allocator.deallocate(span.data(), span.size());
+                        }
                     }
                 }
             }
         }
-    }
 
-    GIVEN("my_vec, a vector using the default int allocator")
-    {
-        auto my_vec = mimalloc::get_container<vector, int>();
-
-        AND_GIVEN("vec, a vector of ints")
+        GIVEN("my_vec, a vector using the default int allocator")
         {
-            auto vec = GENERATE(data_t{42}, data_t{13, 2}, data_t{5, 6});
-
-            INFO(fmt::format("vector size: {}, values: {}", vec.size(), vec));
+            vector<int, mimalloc::allocator<int>> my_vec;
 
             THEN("assign vec to my_vec")
             {
-                my_vec.resize(vec.size());
-                std::ranges::copy(vec, my_vec.begin());
+                my_vec.resize(data_vec.size());
+                std::ranges::copy(data_vec, my_vec.begin());
 
-                REQUIRE(std::ranges::equal(my_vec, vec));
+                REQUIRE(std::ranges::equal(my_vec, data_vec));
             }
         }
     }

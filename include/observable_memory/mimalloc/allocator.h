@@ -1,6 +1,5 @@
 #pragma once
 
-#include <stdsharp/functional/operations.h>
 #include <vector>
 #include <deque>
 #include <forward_list>
@@ -41,7 +40,7 @@ namespace observable_memory::mimalloc
             using other = proxy_allocator<U>;
         };
 
-#define ALLOC_MEMBER_FUN(name)                                                         \
+#define ALLOC_MEMBER_FUN(attr, name)                                                   \
     template<typename... Args>                                                         \
         requires requires(T t) { traits::name(t, ::std ::declval<Args>()...); }        \
     constexpr auto name(Args&&... args)                                                \
@@ -50,12 +49,12 @@ namespace observable_memory::mimalloc
         return traits::name(this->get(), ::std::forward<Args>(args)...);               \
     }
 
-        ALLOC_MEMBER_FUN(allocate)
-        ALLOC_MEMBER_FUN(deallocate)
-        ALLOC_MEMBER_FUN(max_size)
-        ALLOC_MEMBER_FUN(construct)
-        ALLOC_MEMBER_FUN(destroy)
-        ALLOC_MEMBER_FUN(select_on_container_copy_construction)
+        ALLOC_MEMBER_FUN([[nodiscard]], allocate)
+        ALLOC_MEMBER_FUN(, deallocate)
+        ALLOC_MEMBER_FUN([[nodiscard]], max_size)
+        ALLOC_MEMBER_FUN([[nodiscard]], construct)
+        ALLOC_MEMBER_FUN(, destroy)
+        ALLOC_MEMBER_FUN([[nodiscard]], select_on_container_copy_construction)
 
 #undef ALLOC_MEMBER_FUN
 
@@ -80,7 +79,7 @@ namespace observable_memory::mimalloc
         constexpr bool operator==(const OtherAlloc& alloc) const
             noexcept(::stdsharp::nothrow_invocable<::std::ranges::equal_to, T, OtherAlloc>)
         {
-            return ::stdsharp::equal_to_v(this->get(), alloc);
+            return ::std::ranges::equal_to{}(this->get(), alloc);
         }
     };
 
@@ -88,59 +87,20 @@ namespace observable_memory::mimalloc
     proxy_allocator(T&) -> proxy_allocator<T>;
 
     template<typename T>
-    struct get_allocator_fn
+    class allocator : public proxy_allocator<pmr::polymorphic_allocator<T>>
     {
-        [[nodiscard]] constexpr auto operator()() const noexcept
+        [[nodiscard]] static constexpr auto& get_instance() noexcept
         {
             static pmr::polymorphic_allocator<T> alloc{&get_resource()};
-            return proxy_allocator{alloc};
+            return alloc;
         }
-    };
-
-    template<typename T>
-    inline constexpr get_allocator_fn<T> get_allocator{};
-
-    template<typename T>
-    using allocator = ::std::invoke_result_t<get_allocator_fn<T>>;
-
-    template<template<typename...> typename Container, typename T>
-    struct get_container_fn
-    {
-    private:
-        template<template<typename...> typename>
-        struct apply_to_container;
-
-#define APPLY_TO_CONTAINER(name)                   \
-    template<>                                     \
-    struct apply_to_container<::std::name>         \
-    {                                              \
-        using type = ::std::name<T, allocator<T>>; \
-    };
-
-        APPLY_TO_CONTAINER(vector)
-        APPLY_TO_CONTAINER(deque)
-        APPLY_TO_CONTAINER(forward_list)
-        APPLY_TO_CONTAINER(list)
-        APPLY_TO_CONTAINER(set)
-        APPLY_TO_CONTAINER(map)
-        APPLY_TO_CONTAINER(unordered_set)
-        APPLY_TO_CONTAINER(unordered_map)
-
-#undef APPLY_TO_CONTAINER
 
     public:
-        using container = typename apply_to_container<Container>::type;
-        using alloc_t = allocator<T>;
-
-        template<typename... Args>
-            requires ::std::constructible_from<container, Args..., alloc_t>
-        [[nodiscard]] constexpr auto operator()(Args&&... args) const
-            noexcept(::stdsharp::nothrow_constructible_from<container, Args..., alloc_t>)
+        constexpr allocator() noexcept:
+            proxy_allocator<pmr::polymorphic_allocator<T>>(get_instance())
         {
-            return container{::std::forward<Args>(args)..., get_allocator<T>()};
         }
-    };
 
-    template<template<typename...> typename Container, typename T>
-    inline constexpr get_container_fn<Container, T> get_container{};
+        using is_always_equal = ::std::true_type;
+    };
 }
