@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <initializer_list>
 #include <span>
 
 #include "observable_memory/mimalloc/allocator.h"
@@ -9,13 +10,15 @@ using namespace observable_memory;
 
 SCENARIO("mimalloc allocator", "[mimalloc]") // NOLINT
 {
+    using data_t = initializer_list<int>;
+
     GIVEN("a default int allocator")
     {
-        auto allocator = mimalloc::get_default_allocator<int>();
+        auto allocator = mimalloc::get_allocator<int>();
 
         AND_GIVEN("a vector of ints")
         {
-            auto vec = GENERATE(vector<int>{42}, vector<int>{13, 2}, vector<int>{5, 6});
+            auto vec = GENERATE(data_t{42}, data_t{13, 2}, data_t{5, 6});
 
             INFO(fmt::format("vector size: {}, values: {}", vec.size(), vec));
 
@@ -25,9 +28,9 @@ SCENARIO("mimalloc allocator", "[mimalloc]") // NOLINT
 
                 AND_THEN("assign the values to the span")
                 {
-                    ranges::copy(vec, span.begin());
+                    std::ranges::copy(vec, span.begin());
 
-                    REQUIRE(ranges::equal(span, vec));
+                    REQUIRE(std::ranges::equal(span, vec));
 
                     AND_THEN("deallocate the pointer")
                     {
@@ -40,20 +43,20 @@ SCENARIO("mimalloc allocator", "[mimalloc]") // NOLINT
 
     GIVEN("my_vec, a vector using the default int allocator")
     {
-        vector<int, mimalloc::default_allocator<int>> my_vec;
+        auto my_vec = mimalloc::get_container<vector, int>();
 
         AND_GIVEN("vec, a vector of ints")
         {
-            auto vec = GENERATE(vector<int>{42}, vector<int>{13, 2}, vector<int>{5, 6});
+            auto vec = GENERATE(data_t{42}, data_t{13, 2}, data_t{5, 6});
 
             INFO(fmt::format("vector size: {}, values: {}", vec.size(), vec));
 
             THEN("assign vec to my_vec")
             {
                 my_vec.resize(vec.size());
-                ranges::copy(vec, my_vec.begin());
+                std::ranges::copy(vec, my_vec.begin());
 
-                REQUIRE(ranges::equal(my_vec, vec));
+                REQUIRE(std::ranges::equal(my_vec, vec));
             }
         }
     }
