@@ -27,7 +27,7 @@ SCENARIO("mimalloc allocator", "[mimalloc]") // NOLINT
 
                 THEN("allocate same size of ints from resource, and construct a span of ints")
                 {
-                    span<int> span{allocator.allocate(data_vec.size()), data_vec.size()};
+                    const span<int> span{allocator.allocate(data_vec.size()), data_vec.size()};
 
                     AND_THEN("assign the values to the span")
                     {
@@ -61,11 +61,11 @@ SCENARIO("mimalloc allocator", "[mimalloc]") // NOLINT
         {
             allocator<int> allocator;
 
-            mimalloc::proxy_allocator proxy_allocator{allocator};
+            const mimalloc::proxy_allocator proxy_allocator{allocator};
 
             THEN("allocate same size of ints from resource, and construct a span of ints")
             {
-                span<int> span{proxy_allocator.allocate(data_vec.size()), data_vec.size()};
+                const span<int> span{proxy_allocator.allocate(data_vec.size()), data_vec.size()};
 
                 AND_THEN("assign the values to the span")
                 {
