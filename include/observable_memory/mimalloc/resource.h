@@ -1,6 +1,10 @@
 #pragma once
 
 #if __cpp_lib_polymorphic_allocator >= 201902L
+    #define OBSERVABLE_MEMORY_HAS_MEMORY_RESOURCE true
+#endif
+
+#if OBSERVABLE_MEMORY_HAS_MEMORY_RESOURCE
     #include <memory_resource>
 #else
     #include <boost/container/pmr/synchronized_pool_resource.hpp>
@@ -12,21 +16,20 @@
 
 namespace observable_memory
 {
-    namespace pmr = ::
-
-#if __cpp_lib_polymorphic_allocator >= 201902L
-        std::pmr
+    namespace pmr =
+#if OBSERVABLE_MEMORY_HAS_MEMORY_RESOURCE
+        :: std::pmr
 #else
-        boost::container::pmr
+        ::boost::container::pmr
 #endif
-        ;
+    ;
 }
 
 namespace observable_memory::mimalloc
 {
     struct deleter
     {
-        constexpr void operator()(void* p) const noexcept { mi_free(p); }
+        void operator()(void* p) const noexcept { mi_free(p); }
 
         constexpr void operator()(::std::nullptr_t) = delete;
     };
@@ -62,3 +65,5 @@ namespace observable_memory::mimalloc
         return resource;
     }
 }
+
+#undef OBSERVABLE_MEMORY_HAS_MEMORY_RESOURCE

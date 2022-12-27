@@ -17,23 +17,23 @@
 namespace observable_memory::mimalloc
 {
     template<typename T>
-    struct proxy_allocator : ::std::reference_wrapper<T>, private ::stdsharp::allocator_traits<T>
+    struct proxy_allocator : ::std::reference_wrapper<T>
     {
         using ::std::reference_wrapper<T>::reference_wrapper;
 
         using traits = ::stdsharp::allocator_traits<T>;
 
-        using typename traits::pointer;
-        using typename traits::const_pointer;
-        using typename traits::void_pointer;
-        using typename traits::const_void_pointer;
-        using typename traits::value_type;
-        using typename traits::size_type;
-        using typename traits::difference_type;
-        using typename traits::propagate_on_container_copy_assignment;
-        using typename traits::propagate_on_container_move_assignment;
-        using typename traits::propagate_on_container_swap;
-        using typename traits::is_always_equal;
+        using pointer = typename traits::pointer;
+        using const_pointer = typename traits::const_pointer;
+        using void_pointer = typename traits::void_pointer;
+        using const_void_pointer = typename traits::const_void_pointer;
+        using value_type = typename traits::value_type;
+        using size_type = typename traits::size_type;
+        using difference_type = typename traits::difference_type;
+        using propagate_on_container_copy_assignment = typename traits::propagate_on_container_copy_assignment;
+        using propagate_on_container_move_assignment = typename traits::propagate_on_container_move_assignment;
+        using propagate_on_container_swap = typename traits::propagate_on_container_swap;
+        using is_always_equal = typename traits::is_always_equal;
 
         template<typename U>
         struct rebind

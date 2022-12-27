@@ -1,8 +1,18 @@
 #include <algorithm>
 #include <span>
+#include <memory_resource>
 
 #include "observable_memory/mimalloc/allocator.h"
 #include "test.h"
+
+namespace my_ns{
+    namespace pmr = ::std::pmr;
+
+    void foo()
+    {
+        pmr::synchronized_pool_resource resource{};
+    }
+}
 
 using namespace std;
 using namespace observable_memory;

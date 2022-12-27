@@ -31,7 +31,7 @@ SCENARIO("mimalloc memory resource", "[mimalloc]") // NOLINT
     {
         auto& resource = mimalloc::get_resource();
         auto& another_resource = mimalloc::get_resource();
-        pmr::synchronized_pool_resource syn_resource;
+        observable_memory::pmr::synchronized_pool_resource syn_resource;
 
         THEN("all default resource should be equal and same")
         {
@@ -63,7 +63,7 @@ SCENARIO("mimalloc memory resource", "[mimalloc]") // NOLINT
 
     GIVEN("pool_resource, construct a synchronized pool resource from default resource")
     {
-        pmr::synchronized_pool_resource pool_resource{&mimalloc::get_resource()};
+        observable_memory::pmr::synchronized_pool_resource pool_resource{&mimalloc::get_resource()};
 
         THEN("allocate 16 bytes from pool resource")
         {
