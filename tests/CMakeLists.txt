@@ -11,7 +11,7 @@ include(Catch)
 #
 # Set the sources for the unit tests and add the executable(s)
 #
-set(src src/mimalloc/resource.cpp src/mimalloc/allocator.cpp)
+set(src src/memory/mimalloc/resource.cpp src/memory/mimalloc/allocator.cpp)
 
 config_lib(${PROJECT_NAME}Lib INTERFACE)
 

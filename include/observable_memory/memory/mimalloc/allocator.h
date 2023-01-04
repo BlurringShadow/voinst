@@ -16,6 +16,13 @@
 
 namespace observable_memory::mimalloc
 {
+    struct deleter
+    {
+        void operator()(void* p) const noexcept { mi_free(p); }
+
+        constexpr void operator()(::std::nullptr_t) = delete;
+    };
+
     template<typename T>
     struct proxy_allocator : ::std::reference_wrapper<T>
     {
@@ -30,8 +37,10 @@ namespace observable_memory::mimalloc
         using value_type = typename traits::value_type;
         using size_type = typename traits::size_type;
         using difference_type = typename traits::difference_type;
-        using propagate_on_container_copy_assignment = typename traits::propagate_on_container_copy_assignment;
-        using propagate_on_container_move_assignment = typename traits::propagate_on_container_move_assignment;
+        using propagate_on_container_copy_assignment =
+            typename traits::propagate_on_container_copy_assignment;
+        using propagate_on_container_move_assignment =
+            typename traits::propagate_on_container_move_assignment;
         using propagate_on_container_swap = typename traits::propagate_on_container_swap;
         using is_always_equal = typename traits::is_always_equal;
 

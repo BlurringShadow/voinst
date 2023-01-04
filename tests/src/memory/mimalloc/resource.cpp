@@ -1,36 +1,16 @@
-#include "observable_memory/mimalloc/resource.h"
+#include "observable_memory/memory/mimalloc/resource.h"
 #include "test.h"
 
 using namespace std;
 using namespace observable_memory;
-
-SCENARIO("mimalloc deleter", "[mimalloc]") // NOLINT
-{
-    GIVEN("a unique pointer using mimalloc deleter, ")
-    {
-        unique_ptr<int, mimalloc::deleter> ptr{};
-
-        THEN("allocate a int using mimalloc")
-        {
-            mi_stl_allocator<int> allocator;
-            ptr.reset(allocator.allocate(1));
-
-            AND_THEN("assign 42 to the int")
-            {
-                *ptr = 42;
-                REQUIRE(*ptr == 42);
-            }
-        }
-    }
-}
 
 SCENARIO("mimalloc memory resource", "[mimalloc]") // NOLINT
 {
     GIVEN("resource, another_resource, syn_resource, two default resource and a "
           "synchronized_pool_resource")
     {
-        auto& resource = mimalloc::get_resource();
-        auto& another_resource = mimalloc::get_resource();
+        mimalloc::memory_resource resource;
+        mimalloc::memory_resource another_resource;
         observable_memory::pmr::synchronized_pool_resource syn_resource;
 
         THEN("all default resource should be equal and same")
@@ -48,7 +28,7 @@ SCENARIO("mimalloc memory resource", "[mimalloc]") // NOLINT
 
     GIVEN("resource, a default resource")
     {
-        auto& resource = mimalloc::get_resource();
+        mimalloc::memory_resource resource;
 
         THEN("allocate 16 bytes from resource")
         {
@@ -63,7 +43,8 @@ SCENARIO("mimalloc memory resource", "[mimalloc]") // NOLINT
 
     GIVEN("pool_resource, construct a synchronized pool resource from default resource")
     {
-        observable_memory::pmr::synchronized_pool_resource pool_resource{&mimalloc::get_resource()};
+        mimalloc::memory_resource resource;
+        observable_memory::pmr::synchronized_pool_resource pool_resource{&resource};
 
         THEN("allocate 16 bytes from pool resource")
         {

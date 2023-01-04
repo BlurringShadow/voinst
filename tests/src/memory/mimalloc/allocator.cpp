@@ -1,21 +1,31 @@
 #include <algorithm>
 #include <span>
-#include <memory_resource>
 
-#include "observable_memory/mimalloc/allocator.h"
+#include "observable_memory/memory/mimalloc/allocator.h"
 #include "test.h"
-
-namespace my_ns{
-    namespace pmr = ::std::pmr;
-
-    void foo()
-    {
-        pmr::synchronized_pool_resource resource{};
-    }
-}
 
 using namespace std;
 using namespace observable_memory;
+
+SCENARIO("mimalloc deleter", "[mimalloc]") // NOLINT
+{
+    GIVEN("a unique pointer using mimalloc deleter, ")
+    {
+        unique_ptr<int, mimalloc::deleter> ptr{};
+
+        THEN("allocate a int using mimalloc")
+        {
+            mi_stl_allocator<int> allocator;
+            ptr.reset(allocator.allocate(1));
+
+            AND_THEN("assign 42 to the int")
+            {
+                *ptr = 42;
+                REQUIRE(*ptr == 42);
+            }
+        }
+    }
+}
 
 SCENARIO("mimalloc allocator", "[mimalloc]") // NOLINT
 {
