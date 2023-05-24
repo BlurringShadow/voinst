@@ -1,3 +1,10 @@
+---
+title: "Habits"
+author: John Doe
+date: March 22, 2005
+output: word_document
+---
+
 # observable memory
 
 [![Build-and-Test](https://github.com/BlurringShadow/observable_memory/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/BlurringShadow/observable_memory/actions/workflows/build-and-test.yml)

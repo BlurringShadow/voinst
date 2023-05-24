@@ -1,19 +1,18 @@
 #pragma once
 
 #include <unordered_map>
+#include <memory_resource>
 
-#include <boost/container/pmr/synchronized_pool_resource.hpp>
-#include <boost/container/pmr/unsynchronized_pool_resource.hpp>
-#include <boost/container/pmr/polymorphic_allocator.hpp>
 #include <boost/container/pmr/resource_adaptor.hpp>
-
 #include <mimalloc.h>
-
 #include <mimalloc-new-delete.h>
 
 namespace observable_memory
 {
-    namespace pmr = ::boost::container::pmr;
+    namespace pmr = ::std::pmr;
+    namespace bpmr = ::boost::container::pmr;
+
+    using boost_mem_src = bpmr::memory_resource;
 }
 
 namespace observable_memory::mimalloc
@@ -37,7 +36,7 @@ namespace observable_memory::mimalloc
     protected:
         void* do_allocate(std::size_t bytes, std::size_t alignment) override
         {
-            auto ptr = impl().allocate(bytes, alignment);
+            auto ptr = impl_.allocate(bytes, alignment);
 
             allocations_.emplace(ptr, alloc_info{bytes, alignment});
 
@@ -50,24 +49,19 @@ namespace observable_memory::mimalloc
             allocations_.erase(p);
         }
 
-        [[nodiscard]] constexpr bool do_is_equal(const pmr::memory_resource&) //
+        [[nodiscard]] constexpr bool do_is_equal(const pmr::memory_resource& other) //
             const noexcept override
         {
-            return false;
+            return static_cast<const void*>(this) == &other;
         }
 
     private:
         void release_impl() noexcept
         {
-            for(const auto [ptr, info] : allocations_)
-                impl().deallocate(ptr, info.size, info.alignment);
+            for(const auto [ptr, info] : allocations_) impl_.deallocate(ptr, info.size);
         }
 
-        [[nodiscard]] constexpr pmr::memory_resource& impl() noexcept { return impl_; }
-
-        [[nodiscard]] constexpr const pmr::memory_resource& impl() const noexcept { return impl_; }
-
-        pmr::resource_adaptor<mi_stl_allocator<char>> impl_;
+        mi_stl_allocator<char> impl_;
 
         struct alloc_info
         {
@@ -78,7 +72,4 @@ namespace observable_memory::mimalloc
         ::std::unordered_map<void*, alloc_info> allocations_;
     };
 
-};
 }
-
-#undef OBSERVABLE_MEMORY_HAS_MEMORY_RESOURCE
