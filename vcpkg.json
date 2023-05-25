@@ -5,8 +5,7 @@
     "mimalloc",
     "ms-gsl",
     "stdsharp",
-    "catch2",
-    "boost-container"
+    "catch2"
   ],
   "overrides": [],
   "vcpkg-configuration": {
@@ -14,7 +13,7 @@
       {
         "kind": "git",
         "repository": "https://github.com/BlurringShadow/vcpkg-registry.git",
-        "baseline": "03f4de59c550682e49a7c8830c144c2bc1215afc",
+        "baseline": "96cd01a09888f80c398dbde60529f7a06ea623d0",
         "packages": [
           "stdsharp"
         ]
