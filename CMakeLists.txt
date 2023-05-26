@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(
-  observable_memory
+  voinst
   VERSION 0.1.0
   LANGUAGES CXX)
 
@@ -10,11 +10,11 @@ find_package(mimalloc CONFIG REQUIRED)
 find_package(stdsharp CONFIG REQUIRED)
 include(stdsharp/Utils)
 
-config_lib(observable_memory INTERFACE std 23)
-target_link_libraries(observable_memory INTERFACE Microsoft.GSL::GSL mimalloc
+config_lib(voinst INTERFACE std 23)
+target_link_libraries(voinst INTERFACE Microsoft.GSL::GSL mimalloc
                                                   stdsharp::stdsharp)
 
-target_install(observable_memory COMPATIBILITY SameMajorVersion DEPENDENCIES
+target_install(voinst COMPATIBILITY SameMajorVersion DEPENDENCIES
                Microsoft.GSL;mimalloc;stdsharp;)
 
 get_directory_property(is_subproject PARENT_DIRECTORY)

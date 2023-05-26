@@ -1,22 +1,23 @@
-#include "observable_memory/memory/mimalloc/resource.h"
+#include "voinst/memory_resource.h"
 #include "test.h"
 
 using namespace std;
-using namespace observable_memory;
+using namespace voinst;
+
+using memory_resource = voinst::memory_resource;
 
 SCENARIO("mimalloc memory resource", "[mimalloc]") // NOLINT
 {
     GIVEN("resource, another_resource, syn_resource, two default resource and a "
           "synchronized_pool_resource")
     {
-        mimalloc::memory_resource resource;
-        mimalloc::memory_resource another_resource;
-        observable_memory::pmr::synchronized_pool_resource syn_resource;
+        memory_resource resource;
+        memory_resource another_resource;
+        voinst::pmr::synchronized_pool_resource syn_resource;
 
-        THEN("all default resource should be equal and same")
+        THEN("all default resource should be not equal or same")
         {
-            REQUIRE(resource == another_resource);
-            REQUIRE_FALSE(resource != another_resource);
+            REQUIRE(resource != another_resource);
         }
 
         THEN("default resource should not be equal to synchronized_pool_resource")
@@ -28,7 +29,7 @@ SCENARIO("mimalloc memory resource", "[mimalloc]") // NOLINT
 
     GIVEN("resource, a default resource")
     {
-        mimalloc::memory_resource resource;
+        memory_resource resource;
 
         THEN("allocate 16 bytes from resource")
         {
@@ -43,8 +44,8 @@ SCENARIO("mimalloc memory resource", "[mimalloc]") // NOLINT
 
     GIVEN("pool_resource, construct a synchronized pool resource from default resource")
     {
-        mimalloc::memory_resource resource;
-        observable_memory::pmr::synchronized_pool_resource pool_resource{&resource};
+        memory_resource resource;
+        voinst::pmr::synchronized_pool_resource pool_resource{&resource};
 
         THEN("allocate 16 bytes from pool resource")
         {

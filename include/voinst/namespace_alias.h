@@ -3,9 +3,9 @@
 #include <memory_resource>
 #include <stdsharp/memory/memory.h>
 
-namespace observable_memory
+namespace voinst
 {
     namespace std = ::std;
     namespace pmr = std::pmr;
-    namespace stdsharp = ::stdsharp;
+    namespace star = ::stdsharp;
 }

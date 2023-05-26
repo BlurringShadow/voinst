@@ -7,10 +7,10 @@ output: word_document
 
 # observable memory
 
-[![Build-and-Test](https://github.com/BlurringShadow/observable_memory/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/BlurringShadow/observable_memory/actions/workflows/build-and-test.yml)
+[![Build-and-Test](https://github.com/BlurringShadow/voinst/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/BlurringShadow/voinst/actions/workflows/build-and-test.yml)
 ![wakatime](https://wakatime.com/badge/github/BlurringShadow/observable-memory.svg)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/060a0f776cb74c29a262cb45b75d65d7)](https://www.codacy.com/gh/BlurringShadow/observable_memory/dashboard?utm_source=github.com&utm_medium=referral&utm_content=BlurringShadow/observable_memory&utm_campaign=Badge_Grade)
-[![Codacy Badge](https://app.codacy.com/project/badge/Coverage/060a0f776cb74c29a262cb45b75d65d7)](https://www.codacy.com/gh/BlurringShadow/observable_memory/dashboard?utm_source=github.com&utm_medium=referral&utm_content=BlurringShadow/observable_memory&utm_campaign=Badge_Coverage)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/060a0f776cb74c29a262cb45b75d65d7)](https://www.codacy.com/gh/BlurringShadow/voinst/dashboard?utm_source=github.com&utm_medium=referral&utm_content=BlurringShadow/voinst&utm_campaign=Badge_Grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Coverage/060a0f776cb74c29a262cb45b75d65d7)](https://www.codacy.com/gh/BlurringShadow/voinst/dashboard?utm_source=github.com&utm_medium=referral&utm_content=BlurringShadow/voinst&utm_campaign=Badge_Coverage)
 
 <span style="font-size:larger;"> **Make all data in memory observable.** </span>
 
