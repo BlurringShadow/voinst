@@ -17,9 +17,6 @@ jobs:
       fail-fast: true
       matrix:
         os: [ubuntu-22.04]
-        include:
-          - os: ubuntu-22.04
-            llvm-ver: 15
 
     steps:
       - uses: actions/checkout@v2
@@ -51,7 +48,7 @@ jobs:
         uses: codacy/codacy-coverage-reporter-action@v1.3.0
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          coverage-reports: .build/Debug/tests/observable_memoryTestsCoverage.lcov
+          coverage-reports: .build/Debug/tests/voinstTestsCoverage.lcov
 
       - name: Codacy Analysis
         uses: codacy/codacy-analysis-cli-action@master

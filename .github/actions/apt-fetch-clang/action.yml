@@ -1,9 +1,11 @@
 name: Fetch Clang toolchain on Linux
+description: Fetch llvm from official apt repository
 
 inputs:
   llvm-ver:
+    description: use cmake to build project and run ctest
     required: false
-    default: 15
+    default: "16"
 runs:
   using: composite
 
@@ -17,7 +19,15 @@ runs:
         version: ${{ inputs.llvm-ver }}
 
     - run: |
-        sudo apt-get install clang-tidy-${{ inputs.llvm-ver }} libc++-${{ inputs.llvm-ver }}-dev libc++abi-${{ inputs.llvm-ver }}-dev;
+        sudo apt-get install llvm-${{ inputs.llvm-ver }} clang-tidy-${{ inputs.llvm-ver }} libc++-${{ inputs.llvm-ver }}-dev libc++abi-${{ inputs.llvm-ver }}-dev;
+        sudo update-alternatives --remove-all clang || true;
+        sudo update-alternatives --remove-all clang++ || true;
+        sudo update-alternatives --remove-all clang-tidy || true;
+        sudo update-alternatives --remove-all llvm-cov || true;
+        sudo update-alternatives --remove-all llvm-profdata || true;
+        sudo update-alternatives --remove-all ld.lld || true;
+        sudo update-alternatives --remove-all cc || true;
+        sudo update-alternatives --remove-all c++ || true;
         sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ inputs.llvm-ver }} 1000;
         sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${{ inputs.llvm-ver }} 1000;
         sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-${{ inputs.llvm-ver }} 1000;

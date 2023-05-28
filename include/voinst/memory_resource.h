@@ -33,7 +33,8 @@ namespace voinst
         {
         }
 
-        [[nodiscard]] constexpr auto allocate(const std::size_t n, const void* const hint = nullptr)
+        [[nodiscard]] constexpr auto
+            allocate(const std::size_t n, const void* const hint = nullptr) const
         {
             const auto size = n * sizeof(T);
 
@@ -48,10 +49,7 @@ namespace voinst
                 );
         }
 
-        constexpr void deallocate(T* const p, const std::size_t size) noexcept
-        {
-            mi_free_size_aligned(p, size * sizeof(T), alignof(T));
-        }
+        constexpr void deallocate(T* const p, const std::size_t) const noexcept { mi_free(p); }
     };
 
     class allocation
@@ -98,12 +96,14 @@ namespace voinst
 
         void allocate()
         {
-            if(get() == nullptr) get() = mi_new_aligned(size(), alignment());
+            auto& ptr = get();
+            if(ptr == nullptr) ptr = mi_new_aligned(size(), alignment());
         }
 
         ~scoped_allocation()
         {
-            if(get() != nullptr) mi_free_size_aligned(get(), size(), alignment());
+            auto& ptr = get();
+            if(ptr != nullptr) mi_free(std::exchange(ptr, nullptr));
         }
 
         scoped_allocation(const scoped_allocation&) = delete;
@@ -127,6 +127,7 @@ namespace std
     template<>
     struct hash<::voinst::scoped_allocation> : hash<::voinst::allocation>
     {
+        using is_transparent = void;
     };
 }
 
@@ -158,7 +159,7 @@ namespace voinst
             const std::size_t alignment
         ) noexcept override
         {
-            allocations_.erase({bytes, star::auto_cast(alignment), p});
+            allocations_.erase(allocations_.find(allocation{bytes, star::auto_cast(alignment), p}));
         }
 
         [[nodiscard]] constexpr bool do_is_equal(const pmr::memory_resource& other) //

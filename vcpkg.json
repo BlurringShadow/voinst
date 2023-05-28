@@ -13,7 +13,7 @@
       {
         "kind": "git",
         "repository": "https://github.com/BlurringShadow/vcpkg-registry.git",
-        "baseline": "96cd01a09888f80c398dbde60529f7a06ea623d0",
+        "baseline": "bbd6493cf5c0d66e9a4b1dfa214cb3d075479fbd",
         "packages": [
           "stdsharp"
         ]
