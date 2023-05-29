@@ -118,9 +118,9 @@ namespace std
     template<>
     struct hash<::voinst::allocation>
     {
-        [[nodiscard]] constexpr size_t operator()(const ::voinst::allocation& alloc) const noexcept
+        [[nodiscard]] size_t operator()(const ::voinst::allocation& alloc) const noexcept
         {
-            return hash<void*>{}(alloc.get());
+            return hash<const void*>{}(alloc.get());
         }
     };
 
