@@ -54,7 +54,7 @@ jobs:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           upload: true
           run-docker-tools: false
-          clang-tidy-output: ".build/Debug/cmake-build.log"
+          clang-tidy-output: ".build/Debug/tests/"
 
   windows-job:
     name: Windows

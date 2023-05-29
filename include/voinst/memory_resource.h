@@ -2,7 +2,7 @@
 
 #include <unordered_set>
 
-#include <mimalloc-new-delete.h>
+#include <mimalloc.h>
 
 #include "namespace_alias.h"
 
@@ -135,31 +135,15 @@ namespace voinst
 {
     class memory_resource : public pmr::memory_resource
     {
-        std::unordered_set<
-            scoped_allocation,
-            std::hash<::voinst::scoped_allocation>,
-            std::ranges::equal_to,
-            allocator<scoped_allocation> // clang-format off
-        > // clang-format on
-            allocations_;
-
-    public:
-        void release() noexcept { allocations_.clear(); }
-
-    protected:
         [[nodiscard]] void*
             do_allocate(const std::size_t bytes, const std::size_t alignment) override
         {
-            return allocations_.emplace(bytes, star::auto_cast(alignment)).first->get();
+            return mi_new_aligned(bytes, star::auto_cast(alignment));
         }
 
-        void do_deallocate(
-            void* const p,
-            const std::size_t bytes,
-            const std::size_t alignment
-        ) noexcept override
+        void do_deallocate(void* const p, const std::size_t, const std::size_t) noexcept override
         {
-            allocations_.erase(allocations_.find(allocation{bytes, star::auto_cast(alignment), p}));
+            mi_free(p);
         }
 
         [[nodiscard]] constexpr bool do_is_equal(const pmr::memory_resource& other) //
@@ -168,4 +152,45 @@ namespace voinst
             return star::to_void_pointer(this) == &other;
         }
     };
+
+    namespace details
+    {
+        template<typename Alloc>
+        class resource_adaptor_impl : public pmr::memory_resource
+        {
+            Alloc alloc_;
+
+        public:
+            using traits = star::allocator_traits<Alloc>;
+
+        private:
+            [[nodiscard]] void*
+                do_allocate(const std::size_t bytes, const std::size_t alignment) override
+            {
+                return traits::allocate(alloc_, bytes, alignment);
+            }
+
+            void do_deallocate(
+                void* const p,
+                const std::size_t bytes,
+                const std::size_t alignment
+            ) noexcept override
+            {
+                traits::deallocate(alloc_, p, bytes, alignment);
+            }
+
+            [[nodiscard]] constexpr bool do_is_equal(const pmr::memory_resource& other) //
+                const noexcept override
+            {
+                if constexpr(traits::is_always_equal::value) return true;
+                if constexpr(requires { std::ranges::equal_to{}(alloc_, other); })
+                    return std::ranges::equal_to{}(alloc_, other);
+                else return star::to_void_pointer(this) == &other;
+            }
+        };
+    }
+
+    template<typename Alloc>
+    using resource_adaptor = details::resource_adaptor_impl<
+        typename star::allocator_traits<Alloc>::template rebind_alloc<char>>;
 }
