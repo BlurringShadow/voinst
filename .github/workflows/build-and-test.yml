@@ -23,8 +23,6 @@ jobs:
 
       - name: Fetch Clang
         uses: ./.github/actions/apt-fetch-clang
-        with:
-          llvm-ver: ${{ matrix.llvm-ver }}
 
       - name: Get cmake option
         id: cmake-option
