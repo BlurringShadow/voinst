@@ -133,26 +133,6 @@ namespace std
 
 namespace voinst
 {
-    class memory_resource : public pmr::memory_resource
-    {
-        [[nodiscard]] void*
-            do_allocate(const std::size_t bytes, const std::size_t alignment) override
-        {
-            return mi_new_aligned(bytes, star::auto_cast(alignment));
-        }
-
-        void do_deallocate(void* const p, const std::size_t, const std::size_t) noexcept override
-        {
-            mi_free(p);
-        }
-
-        [[nodiscard]] constexpr bool do_is_equal(const pmr::memory_resource& other) //
-            const noexcept override
-        {
-            return star::to_void_pointer(this) == &other;
-        }
-    };
-
     namespace details
     {
         template<typename Alloc>
@@ -183,14 +163,20 @@ namespace voinst
                 const noexcept override
             {
                 if constexpr(traits::is_always_equal::value) return true;
-                if constexpr(requires { std::ranges::equal_to{}(alloc_, other); })
-                    return std::ranges::equal_to{}(alloc_, other);
-                else return star::to_void_pointer(this) == &other;
+                else
+                {
+                    constexpr std::ranges::equal_to equal_to{};
+                    if constexpr(requires { equal_to(alloc_, other); })
+                        return equal_to(alloc_, other);
+                    else return star::to_void_pointer(this) == &other;
+                }
             }
         };
     }
 
     template<typename Alloc>
-    using resource_adaptor = details::resource_adaptor_impl<
-        typename star::allocator_traits<Alloc>::template rebind_alloc<char>>;
+    using resource_adaptor = details:: //
+        resource_adaptor_impl<typename star::allocator_traits<Alloc>::template rebind_alloc<char>>;
+
+    using memory_resource = resource_adaptor<allocator<char>>;
 }
