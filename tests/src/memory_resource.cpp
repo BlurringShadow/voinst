@@ -12,12 +12,12 @@ SCENARIO("mimalloc memory resource", "[mimalloc]") // NOLINT
           "synchronized_pool_resource")
     {
         memory_resource resource;
-        memory_resource another_resource;
-        voinst::pmr::synchronized_pool_resource syn_resource;
+        pmr::synchronized_pool_resource syn_resource;
 
-        THEN("all default resource should be not equal or same")
+        THEN("all default resource should be equal")
         {
-            REQUIRE(resource != another_resource);
+            memory_resource another_resource;
+            REQUIRE(resource == another_resource);
         }
 
         THEN("default resource should not be equal to synchronized_pool_resource")
@@ -42,18 +42,17 @@ SCENARIO("mimalloc memory resource", "[mimalloc]") // NOLINT
         }
     }
 
-    GIVEN("pool_resource, construct a synchronized pool resource from default resource")
+    GIVEN("pool_resource, get a default resource")
     {
-        memory_resource resource;
-        voinst::pmr::synchronized_pool_resource pool_resource{&resource};
+        pmr::unsynchronized_pool_resource resource{&get_default_resource()};
 
-        THEN("allocate 16 bytes from pool resource")
+        THEN("allocate 16 bytes from  resource")
         {
-            void* ptr = pool_resource.allocate(16, 16);
+            void* ptr = resource.allocate(16, 16);
 
-            AND_THEN("deallocate 16 bytes from pool resource")
+            AND_THEN("deallocate 16 bytes from  resource")
             {
-                pool_resource.deallocate(ptr, 16, 16); //
+                resource.deallocate(ptr, 16, 16); //
             }
         }
     }

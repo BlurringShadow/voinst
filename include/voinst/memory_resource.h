@@ -10,9 +10,9 @@ namespace voinst
 {
     struct deleter
     {
-        void operator()(void* p) const noexcept { mi_free(p); }
+        void operator()(void* const p) const noexcept { mi_free(p); }
 
-        constexpr void operator()(std::nullptr_t) = delete;
+        void operator()(std::nullptr_t) = delete;
     };
 
     template<typename T>
@@ -20,11 +20,7 @@ namespace voinst
     {
         using value_type = T;
 
-        template<typename U>
-        struct rebind
-        {
-            using other = allocator<U>;
-        };
+        using is_always_equal = std::true_type;
 
         allocator() = default;
 
@@ -50,6 +46,8 @@ namespace voinst
         }
 
         constexpr void deallocate(T* const p, const std::size_t) const noexcept { mi_free(p); }
+
+        constexpr bool operator==(const allocator) const noexcept { return true; }
     };
 
     class allocation
@@ -135,48 +133,73 @@ namespace voinst
 {
     namespace details
     {
-        template<typename Alloc>
-        class resource_adaptor_impl : public pmr::memory_resource
+        template<
+            typename CharAlloc,
+            typename Alloc = star::allocator_traits<CharAlloc>:: //
+            template rebind_alloc<star::all_aligned> // clang-format off
+        > // clang-format on
+        class resource_adaptor_impl : public pmr::memory_resource, star::value_wrapper<Alloc>
         {
-            Alloc alloc_;
+            using allocator_type = Alloc;
+
+            using base = star::value_wrapper<allocator_type>;
+
+            using base::v;
+
+            using traits = star::allocator_traits<allocator_type>;
 
         public:
-            using traits = star::allocator_traits<Alloc>;
+            resource_adaptor_impl() = default;
+
+            constexpr resource_adaptor_impl(const CharAlloc& alloc) noexcept: base(alloc) {}
+
+            [[nodiscard]] constexpr CharAlloc get_allocator() const noexcept { return v; }
 
         private:
-            [[nodiscard]] void*
-                do_allocate(const std::size_t bytes, const std::size_t alignment) override
+            static constexpr auto to_aligned_size(const std::size_t bytes) noexcept
             {
-                return traits::allocate(alloc_, bytes, alignment);
+                constexpr auto max_align_v = star::max_alignment_v;
+                constexpr auto expr0 = max_align_v - 1;
+                return (bytes + expr0) & ~expr0;
             }
 
-            void do_deallocate(
-                void* const p,
-                const std::size_t bytes,
-                const std::size_t alignment
-            ) noexcept override
+            [[nodiscard]] constexpr void*
+                do_allocate(const std::size_t bytes, const std::size_t) override
             {
-                traits::deallocate(alloc_, p, bytes, alignment);
+                return star::auto_cast(traits::allocate(v, to_aligned_size(bytes)));
+            }
+
+            constexpr void
+                do_deallocate(void* const p, const std::size_t bytes, const std::size_t) noexcept
+                override
+            {
+                traits::deallocate(v, static_cast<star::all_aligned*>(p), to_aligned_size(bytes));
             }
 
             [[nodiscard]] constexpr bool do_is_equal(const pmr::memory_resource& other) //
                 const noexcept override
             {
+                if(static_cast<const pmr::memory_resource*>(this) == &other) return true;
+
+                const auto ptr = dynamic_cast<const resource_adaptor_impl*>(&other);
+
+                if(ptr == nullptr) return false;
+
                 if constexpr(traits::is_always_equal::value) return true;
-                else
-                {
-                    constexpr std::ranges::equal_to equal_to{};
-                    if constexpr(requires { equal_to(alloc_, other); })
-                        return equal_to(alloc_, other);
-                    else return star::to_void_pointer(this) == &other;
-                }
+                else return v == ptr->v;
             }
         };
     }
 
-    template<typename Alloc>
+    template<star::allocator_req Alloc>
     using resource_adaptor = details:: //
         resource_adaptor_impl<typename star::allocator_traits<Alloc>::template rebind_alloc<char>>;
 
     using memory_resource = resource_adaptor<allocator<char>>;
+
+    inline auto& get_default_resource()
+    {
+        static constinit memory_resource mem_rsc{};
+        return mem_rsc;
+    }
 }
