@@ -7,10 +7,10 @@ namespace voinst
     template<::std::size_t Size>
     class static_memory_resource : pmr::memory_resource
     {
-        ::stdsharp::static_memory_resource<Size> rsc_;
+        alignas(std::max_align_t) std::array<star::byte, Size> storage_{};
 
     protected:
-        constexpr void* do_allocate(std::size_t bytes, const std::size_t) override
+        constexpr void* do_allocate(std::size_t bytes, const std::size_t alignment) override
         {
             return rsc_.allocate(bytes);
         }
