@@ -1,7 +1,8 @@
 #pragma once
 
+#include <bitset>
+
 #include "aligned.h"
-#include <range/v3/view/chunk_by.hpp>
 
 namespace voinst::details
 {
@@ -10,7 +11,7 @@ namespace voinst::details
     {
         class default_policy
         {
-            std::array<bool, Size> used_{};
+            std::bitset<Size> used_{};
 
             auto aligned_search(
                 const std::size_t bytes,
