@@ -2,7 +2,7 @@
 
 namespace voinst
 {
-    inline constexpr struct
+    inline constexpr struct align_fn
     {
         template<typename T>
         auto
@@ -16,5 +16,13 @@ namespace voinst
                 std::span<T>{} :
                 std::span{star::pointer_cast<T>(void_ptr), space};
         }
-    } aligned{};
+    } align{};
+
+    inline constexpr struct is_align_fn{
+        template<typename T>
+        auto operator()(const std::size_t alignment, const T* const ptr) const noexcept
+        {
+            return align(alignment, 1, std::span{ptr, static_cast<size_t>(-1)}).data() == ptr;
+        }
+    } is_align{};
 }
