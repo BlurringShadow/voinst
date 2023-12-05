@@ -9,67 +9,114 @@ namespace voinst::details
     {
         class default_policy // NOLINTBEGIN(*-reinterpret-*, *-pointer-arithmetic)
         {
-            struct allocation_info
+            struct allocated_rng
             {
-                std::size_t padding{};
-                std::size_t size{};
-
-                auto allocation_start() noexcept
-                {
-                    return reinterpret_cast<std::byte*>(this) + sizeof(allocation_info) + padding;
-                }
-
-                auto allocation_end() noexcept { return allocation_start() + size; }
-
-                std::size_t available{};
-
-                auto available_span() noexcept { return std::span{allocation_end(), available}; }
-
-                auto next_info(const star::byte* const end) noexcept
-                {
-                    const auto next = allocation_end() + available;
-                    return next < end ? //
-                        std::launder(reinterpret_cast<allocation_info*>(next)) :
-                        nullptr;
-                }
+                star::byte* begin = nullptr;
+                star::byte* end = nullptr;
             };
 
+            static constexpr auto info_type_size = sizeof(allocated_rng);
+
+            std::span<allocated_rng> allocations_{};
+
+            constexpr auto first_allocate(
+                const std::size_t bytes,
+                const std::size_t alignment,
+                star::byte* const data
+            ) noexcept
+            {
+                constexpr auto initialize_size = (Size >= info_type_size * 2) ? 2 : 1;
+                constexpr auto start_offset = info_type_size * initialize_size;
+                const auto span =
+                    align(alignment, bytes, std::span{data + start_offset, Size - start_offset});
+
+                if(span.empty()) return Size;
+
+                allocations_ = {
+                    ::new(data) allocated_rng[initialize_size]{
+                        {data, data + start_offset},
+                        {span.data(), span.data() + bytes}
+                    },
+                    initialize_size
+                };
+
+                return span.data() - data;
+            }
+
+            static constexpr try_set_allocated(
+                allocated_rng& pre_info,
+                allocated_rng& next_info,
+                const allocated_rng& new_info,
+                star::byte* const data
+            ) noexcept
+            {
+                if(pre_info == nullptr) return Size;
+
+                auto& next_info = &pre_info + 1;
+                if(pre_info) }
+
         public:
+            default_policy() = default;
+            default_policy(const default_policy&) = default;
+            default_policy(default_policy&&) = default;
+            default_policy& operator=(const default_policy&) = default;
+            default_policy& operator=(default_policy&&) = default;
+
+            constexpr ~default_policy() noexcept { std::ranges::destroy(allocations_); }
+
             constexpr auto operator()(
                 const std::size_t bytes,
                 const std::size_t alignment,
                 std::array<star::byte, Size>& storage
             ) noexcept
+                requires(Size >= sizeof(allocated_rng))
             {
-                const auto data = std::assume_aligned<star::max_alignment_v>(storage.data());
+                const auto begin = std::assume_aligned<star::max_alignment_v>(storage.data());
+                const auto end = begin + Size;
 
-                for(auto info_ptr = std::launder(reinterpret_cast<allocation_info*>(data));
-                    info_ptr != nullptr;
-                    info_ptr = info_ptr->next_info())
+                if(allocations_ == nullptr) return first_allocate(bytes, alignment, begin);
+
+                allocated_rng* pre_info = nullptr;
+                allocated_rng next_info = nullptr;
+                star::byte* candidate_ptr = nullptr;
+
+                for( //
+                    std::size_t overflowed = -1;
+                    auto&& window : std::views::single(allocated_rng{begin, begin}) |
+                        ::ranges::views::concat(
+                                        allocations_,
+                                        std::views::single(allocated_rng{end, end})
+                        ) |
+                        ::ranges::views::sliding(2) //
+                )
                 {
-                    const auto info_span = align(
-                        sizeof(allocation_info),
-                        alignof(allocation_info),
-                        info_ptr->available_span()
-                    );
-                    if(info_span.empty()) continue;
+                    auto& pre = ranges::front(window);
+                    auto& next = ranges::back(window);
 
-                    const auto allocated_span = align(alignment, bytes, info_span);
+                    std::span available{pre.end, next.begin};
+                    const auto aligned_span = align(alignment, bytes, available);
 
-                    if(!allocated_span.empty()) continue;
+                    if(aligned_span.empty()) continue;
 
-                    ::new(info_span.data()) allocation_info{
-                        .padding = allocated_span.data() - info_span.data(),
-                        .size = bytes,
-                        .available = allocated_span.size() - bytes,
-                    };
+                    const auto cur_overflowed = available.size() - bytes;
 
-                    info_ptr->available -= info_span.size();
+                    if(overflowed <= cur_overflowed) continue;
 
-                    return allocated_span.data() - data;
+                    pre_info = &pre;
+                    next_info = &next;
+                    candidate_ptr = aligned_span.data();
+                    overflowed = cur_overflowed;
+
+                    if(overflowed == 0) break;
                 }
 
-                return Size;
+                return pre_info == nullptr ?
+                    Size :
+                    try_set_allocated(
+                        *pre_info,
+                        allocated_rng{candidate_ptr, candidate_ptr + bytes},
+                        begin
+                    );
             }
 
             constexpr void operator()(
@@ -80,7 +127,7 @@ namespace voinst::details
             ) noexcept
             {
                 const auto data = std::assume_aligned<star::max_alignment_v>(storage.data());
-                auto info_ptr = std::launder(reinterpret_cast<allocation_info*>(data));
+                auto info_ptr = std::launder(reinterpret_cast<allocated_rng*>(data));
 
                 for(; info_ptr != nullptr; info_ptr = info_ptr->next_info())
                     if(info_ptr->allocation_start() == ptr) break;
