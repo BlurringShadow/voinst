@@ -9,74 +9,179 @@ namespace voinst::details
     {
         class default_policy // NOLINTBEGIN(*-reinterpret-*, *-pointer-arithmetic)
         {
-            struct free_rng
+            static constexpr struct mem_rng
             {
                 star::byte* begin = nullptr;
                 star::byte* end = nullptr;
 
                 constexpr auto size() const noexcept { return end - begin; }
-            };
 
-            std::span<free_rng> frees_{};
+                constexpr auto empty() const noexcept { return end == begin; }
+            } empty_rng{};
 
-            static constexpr auto sizeof_free_rng = sizeof(free_rng);
+            std::span<mem_rng> frees_{};
 
-            constexpr void init(const star::byte* const data) noexcept
+            static constexpr auto sizeof_mem_rng = sizeof(mem_rng);
+
+            constexpr auto try_allocate(std::size_t i, const mem_rng& take_space)
             {
-                frees_ = {
-                    ::new(data) free_rng{
-                        data,
-                        Size,
-                    },
-                    1
-                };
+                auto& info = frees_[i];
+                mem_rng left_info{info.begin, take_space.begin};
+                mem_rng right_info{take_space.end, info.end};
+
+                if(left_info.size() == 0)
+                {
+                    info = right_info;
+                    return true;
+                }
+
+                if(right_info.size() == 0)
+                {
+                    info = left_info;
+                    return true;
+                }
+
+                return try_insert_free(i, left_info, right_info);
             }
 
             constexpr auto
-                try_insert_allocated(const std::size_t i, const free_rng& new_info) noexcept
+                try_insert_free(std::size_t i, const mem_rng& left_info, const mem_rng& right_info)
             {
+                auto it = std::ranges::find_if(
+                    frees_.subspan(i + 1),
+                    [](const auto& f) { return f.empty(); }
+                );
+
+                if(it == frees_.end())
+                    return try_reallocate_frees(i, left_info, right_info);
+
+                for(auto next_i = i + 1;; i = next_i, ++next_i)
+                {
+                    if(next_i == frees_.size() || frees_[next_i].begin == nullptr)
+                    {
+                        frees_[i] = empty_rng;
+                        break;
+                    }
+
+                    frees_[next_i] = frees_[i];
+                }
+
+                auto& info = frees_[i];
+                std::span new_frees{frees_.data(), frees_.size() + 1};
+
+                info = right_info;
+
+                std::ranges::move_backward(frees_.subspan(i), new_frees.end());
+
+                info = left_info;
+                frees_ = new_frees;
+            }
+
+            constexpr auto try_reallocate_frees(
+                const std::size_t i,
+                const mem_rng& left_info,
+                const mem_rng& right_info
+            )
+            {
+                constexpr auto alignof_free_rng = alignof(mem_rng);
+                const auto actual_size = (frees_.size() + 1) * sizeof_mem_rng;
+                const std::ranges::single_view right_info_view = (right_info);
+                auto& info = frees_[i];
+
+                info = left_info;
+
+                auto [candidate, target_index] =
+                    best_fit(frees_.size() * 2 * sizeof_mem_rng, alignof_free_rng, right_info_view);
+
+                if(candidate == nullptr)
+                {
+                    std::tie(candidate, target_index) = best_fit(
+                        (frees_.size() + 1) * sizeof_mem_rng,
+                        alignof_free_rng,
+                        right_info_view
+                    );
+
+                    if(candidate == nullptr)
+                    {
+                        info = {left_info.begin, right_info.end};
+                        return false;
+                    }
+                }
+
+                {
+                    auto& target_info = frees_[target_index];
+                    frees_[target_index].begin += actual_size;
+
+                    if(frees_) }
+
+                std::span new_frees{reinterpret_cast<mem_rng*>(candidate), frees_.size() + 1};
+
+                std::ranges::uninitialized_move(
+                    ranges::views::concat(
+                        frees_.subspan(0, i + 1),
+                        right_info_view,
+                        frees_.subspan(i + 1)
+                    ),
+                    new_frees.begin()
+                );
+
+                frees_ = new_frees;
+
+                return true;
+            }
+
+            static constexpr auto best_fit(
+                const std::size_t bytes,
+                const std::size_t alignment,
+                const auto& rng,
+                mem_rng candidate_free = empty_rng
+            )
+            {
+                star::byte* candidate = nullptr;
+                std::size_t candidate_index = 0;
+
+                for(const auto& [index, free] : rng | ranges::views::enumerate)
+                {
+                    const auto& aligned = align(alignment, bytes, std::span{free.begin, free.end});
+
+                    if(aligned.empty() ||
+                       !candidate_free.empty() && (free.size() >= candidate_free.size()))
+                        continue;
+
+                    candidate = aligned.data();
+                    candidate_index = index;
+                }
+
+                return std::pair{candidate, candidate_index};
             }
 
         public:
-            default_policy() = default;
-            default_policy(const default_policy&) = default;
-            default_policy(default_policy&&) = default;
-            default_policy& operator=(const default_policy&) = default;
-            default_policy& operator=(default_policy&&) = default;
-
-            constexpr ~default_policy() { std::ranges::destroy(frees_); }
-
             constexpr auto operator()(
                 const std::size_t bytes,
                 const std::size_t alignment,
                 std::array<star::byte, Size>& storage
             ) noexcept
-                requires(Size >= sizeof(free_rng))
+                requires(Size >= sizeof(mem_rng))
             {
-                const auto begin = std::assume_aligned<star::max_alignment_v>(storage.data());
-                const auto end = begin + Size;
-                star::byte* candidate{};
-                std::size_t target_index = Size;
+                const auto data = std::assume_aligned<star::max_alignment_v>(storage.data());
 
-                if(frees_.empty()) init(begin);
-
-                for(const auto& [index, free] : frees_ | ranges::views::enumerate)
+                if(frees_.empty())
                 {
-                    const auto& aligned = align(alignment, bytes, std::span{free.begin, free.end});
-
-                    if(aligned.empty() || (target_index != Size) && (free.size() >= frees_[target_index].size())) continue;
-
-                    candidate = aligned.data();
-                    target_index = index;
+                    if(Size < sizeof_mem_rng) return Size;
+                    frees_ = {
+                        ::new(data) mem_rng{
+                            data + sizeof_mem_rng,
+                            Size - sizeof_mem_rng,
+                        },
+                        1
+                    };
                 }
 
-                return pre_info == nullptr ? Size :
-                                             try_set_allocated(
-                                                 *pre_info,
-                                                 *next_info,
-                                                 free_rng{candidate_ptr, candidate_ptr + bytes},
-                                                 begin
-                                             );
+                const auto [candidate, i] = best_fit(bytes, alignment, frees_);
+
+                return candidate != nullptr && try_allocate(i, {candidate, candidate + bytes}) ?
+                    Size :
+                    candidate - data;
             }
 
             constexpr void operator()(
@@ -87,7 +192,7 @@ namespace voinst::details
             ) noexcept
             {
                 const auto data = std::assume_aligned<star::max_alignment_v>(storage.data());
-                auto info_ptr = std::launder(reinterpret_cast<free_rng*>(data));
+                auto info_ptr = std::launder(reinterpret_cast<mem_rng*>(data));
 
                 for(; info_ptr != nullptr; info_ptr = info_ptr->next_info())
                     if(info_ptr->allocation_start() == ptr) break;
