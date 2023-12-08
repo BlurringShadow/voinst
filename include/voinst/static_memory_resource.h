@@ -7,7 +7,7 @@ namespace voinst::details
     template<std::size_t Size>
     struct static_memory_resource_traits
     {
-        class default_policy // NOLINTBEGIN(*-reinterpret-*, *-pointer-arithmetic)
+        class default_policy // NOLINTBEGIN(*-pointer-arithmetic)
         {
             static constexpr struct mem_rng
             {
@@ -19,115 +19,66 @@ namespace voinst::details
                 constexpr auto empty() const noexcept { return end == begin; }
             } empty_rng{};
 
-            std::span<mem_rng> frees_{};
+            std::vector<mem_rng> frees_{};
 
             static constexpr auto sizeof_mem_rng = sizeof(mem_rng);
 
-            constexpr auto try_allocate(std::size_t i, const mem_rng& take_space)
+            constexpr auto try_allocate_free(const std::size_t i, const std::span<star::byte>& candidate)
             {
-                auto& info = frees_[i];
-                mem_rng left_info{info.begin, take_space.begin};
-                mem_rng right_info{take_space.end, info.end};
+                auto& free = frees_[i];
+                mem_rng left_mem_rng{free.begin, candidate.begin()};
+                mem_rng right_mem_rng{candidate.end(), free.end};
 
-                if(left_info.size() == 0)
+                if(left_mem_rng.empty())
                 {
-                    info = right_info;
+                    free = right_mem_rng;
                     return true;
                 }
 
-                if(right_info.size() == 0)
+                if(right_mem_rng.empty())
                 {
-                    info = left_info;
+                    free = left_mem_rng;
                     return true;
                 }
 
-                return try_insert_free(i, left_info, right_info);
+                return try_insert_free(i, left_mem_rng, right_mem_rng);
             }
 
-            constexpr auto
-                try_insert_free(std::size_t i, const mem_rng& left_info, const mem_rng& right_info)
-            {
-                auto it = std::ranges::find_if(
-                    frees_.subspan(i + 1),
-                    [](const auto& f) { return f.empty(); }
-                );
-
-                if(it == frees_.end())
-                    return try_reallocate_frees(i, left_info, right_info);
-
-                for(auto next_i = i + 1;; i = next_i, ++next_i)
-                {
-                    if(next_i == frees_.size() || frees_[next_i].begin == nullptr)
-                    {
-                        frees_[i] = empty_rng;
-                        break;
-                    }
-
-                    frees_[next_i] = frees_[i];
-                }
-
-                auto& info = frees_[i];
-                std::span new_frees{frees_.data(), frees_.size() + 1};
-
-                info = right_info;
-
-                std::ranges::move_backward(frees_.subspan(i), new_frees.end());
-
-                info = left_info;
-                frees_ = new_frees;
-            }
-
-            constexpr auto try_reallocate_frees(
-                const std::size_t i,
-                const mem_rng& left_info,
-                const mem_rng& right_info
+            constexpr auto try_insert_free(
+                std::size_t i,
+                const mem_rng& left_mem_rng,
+                const mem_rng& right_mem_rng
             )
             {
-                constexpr auto alignof_free_rng = alignof(mem_rng);
-                const auto actual_size = (frees_.size() + 1) * sizeof_mem_rng;
-                const std::ranges::single_view right_info_view = (right_info);
-                auto& info = frees_[i];
+                const auto it = frees_.begin() + i;
+                auto cur = it;
+                auto adjacent_it = frees_.end();
 
-                info = left_info;
-
-                auto [candidate, target_index] =
-                    best_fit(frees_.size() * 2 * sizeof_mem_rng, alignof_free_rng, right_info_view);
-
-                if(candidate == nullptr)
+                for(;; --cur)
                 {
-                    std::tie(candidate, target_index) = best_fit(
-                        (frees_.size() + 1) * sizeof_mem_rng,
-                        alignof_free_rng,
-                        right_info_view
-                    );
-
-                    if(candidate == nullptr)
+                    if(cur->empty())
                     {
-                        info = {left_info.begin, right_info.end};
-                        return false;
+                        for(adjacent_it = cur + 1; adjacent_it < it; ++adjacent_it, ++cur)
+                            *cur = *adjacent_it;
+                        *cur = left_mem_rng;
+                        *adjacent_it = right_mem_rng;
+                        return true;
                     }
+
+                    if(cur == frees_.begin()) break;
                 }
 
-                {
-                    auto& target_info = frees_[target_index];
-                    frees_[target_index].begin += actual_size;
+                for(cur = it; cur != frees_.end(); ++cur)
+                    if(cur->empty())
+                    {
+                        for(adjacent_it = cur - 1; adjacent_it > it; --adjacent_it, --cur)
+                            *cur = *adjacent_it;
+                        *adjacent_it = left_mem_rng;
+                        *cur = right_mem_rng;
+                        return true;
+                    }
 
-                    if(frees_) }
-
-                std::span new_frees{reinterpret_cast<mem_rng*>(candidate), frees_.size() + 1};
-
-                std::ranges::uninitialized_move(
-                    ranges::views::concat(
-                        frees_.subspan(0, i + 1),
-                        right_info_view,
-                        frees_.subspan(i + 1)
-                    ),
-                    new_frees.begin()
-                );
-
-                frees_ = new_frees;
-
-                return true;
+                Expects(false);
             }
 
             static constexpr auto best_fit(
@@ -137,18 +88,20 @@ namespace voinst::details
                 mem_rng candidate_free = empty_rng
             )
             {
-                star::byte* candidate = nullptr;
+                std::span<star::byte> candidate{};
                 std::size_t candidate_index = 0;
 
                 for(const auto& [index, free] : rng | ranges::views::enumerate)
                 {
+                    if(free.empty()) continue;
+
                     const auto& aligned = align(alignment, bytes, std::span{free.begin, free.end});
 
                     if(aligned.empty() ||
                        !candidate_free.empty() && (free.size() >= candidate_free.size()))
                         continue;
 
-                    candidate = aligned.data();
+                    candidate = aligned;
                     candidate_index = index;
                 }
 
@@ -171,7 +124,7 @@ namespace voinst::details
                     frees_ = {
                         ::new(data) mem_rng{
                             data + sizeof_mem_rng,
-                            Size - sizeof_mem_rng,
+                            data + Size,
                         },
                         1
                     };
@@ -179,7 +132,7 @@ namespace voinst::details
 
                 const auto [candidate, i] = best_fit(bytes, alignment, frees_);
 
-                return candidate != nullptr && try_allocate(i, {candidate, candidate + bytes}) ?
+                return !candidate.empty() && try_allocate_free(i, {candidate, candidate + bytes}) ?
                     Size :
                     candidate - data;
             }
