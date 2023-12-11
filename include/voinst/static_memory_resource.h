@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdsharp/containers/actions.h>
+
 #include "aligned.h"
 
 namespace voinst::details
@@ -19,142 +21,157 @@ namespace voinst::details
                 constexpr auto empty() const noexcept { return end == begin; }
             } empty_rng{};
 
-            std::vector<mem_rng> frees_{};
+            pmr::vector<mem_rng> frees_;
 
-            static constexpr auto sizeof_mem_rng = sizeof(mem_rng);
-
-            constexpr auto try_allocate_free(const std::size_t i, const std::span<star::byte>& candidate)
+            constexpr auto allocate_impl(const auto it, const std::span<star::byte>& candidate)
             {
-                auto& free = frees_[i];
+                auto& free = *it;
                 mem_rng left_mem_rng{free.begin, candidate.begin()};
                 mem_rng right_mem_rng{candidate.end(), free.end};
 
                 if(left_mem_rng.empty())
                 {
                     free = right_mem_rng;
-                    return true;
+                    return;
                 }
 
                 if(right_mem_rng.empty())
                 {
                     free = left_mem_rng;
-                    return true;
+                    return;
                 }
 
-                return try_insert_free(i, left_mem_rng, right_mem_rng);
+                insert_free(it, left_mem_rng, right_mem_rng);
             }
 
-            constexpr auto try_insert_free(
-                std::size_t i,
+            constexpr auto insert_free(
+                const auto it,
                 const mem_rng& left_mem_rng,
                 const mem_rng& right_mem_rng
             )
             {
-                const auto it = frees_.begin() + i;
-                auto cur = it;
-                auto adjacent_it = frees_.end();
-
-                for(;; --cur)
+                constexpr auto squeeze = [&](const auto f_begin, const auto f_end)
                 {
-                    if(cur->empty())
-                    {
-                        for(adjacent_it = cur + 1; adjacent_it < it; ++adjacent_it, ++cur)
-                            *cur = *adjacent_it;
-                        *cur = left_mem_rng;
-                        *adjacent_it = right_mem_rng;
-                        return true;
-                    }
+                    const auto found = std::ranges::find_if(
+                        f_begin,
+                        f_end,
+                        [](const auto& rng) { return rng.empty(); }
+                    );
 
-                    if(cur == frees_.begin()) break;
-                }
+                    if(found == f_end) return false;
 
-                for(cur = it; cur != frees_.end(); ++cur)
-                    if(cur->empty())
-                    {
-                        for(adjacent_it = cur - 1; adjacent_it > it; --adjacent_it, --cur)
-                            *cur = *adjacent_it;
-                        *adjacent_it = left_mem_rng;
-                        *cur = right_mem_rng;
-                        return true;
-                    }
+                    std::ranges::move_backward(f_begin, found, found);
+                    *f_begin = right_mem_rng;
+                    *(f_begin - 1) = *left_mem_rng;
 
-                Expects(false);
+                    return true;
+                };
+
+                if(squeeze(std::reverse_iterator{it}, frees_.crend()) ||
+                   squeeze(it + 1, frees_.cend()))
+                    return;
+
+                *it = left_mem_rng;
+                frees_.insert(it + 1, right_mem_rng);
             }
 
-            static constexpr auto best_fit(
+            static constexpr auto try_append_back(const mem_rng& src, mem_rng& dst)
+            {
+                if(src.begin != dst.end) return false;
+                dst.end = src.end;
+                return true;
+            }
+
+            static constexpr auto try_append_front(const mem_rng& src, mem_rng& dst)
+            {
+                if(src.end != dst.begin) return false;
+                dst.begin = src.begin;
+                return true;
+            }
+
+            static constexpr auto try_append(const auto prev, const auto next, const mem_rng& src)
+            {
+                if(!try_append_back(src, *prev)) return try_append_front(src, *next);
+                if(auto& b = next->begin; src.end == b) b = next->end;
+                return true;
+            }
+
+        public:
+            constexpr explicit default_policy(pmr::memory_resource* const upstream):
+                frees_(1, empty_rng, upstream)
+            {
+                frees_.reserve(2);
+            }
+
+            constexpr auto upstream() const noexcept { return frees_.get_allocator().resource(); }
+
+            constexpr std::size_t operator()(
                 const std::size_t bytes,
                 const std::size_t alignment,
-                const auto& rng,
-                mem_rng candidate_free = empty_rng
+                std::array<star::byte, Size>& storage
             )
             {
-                std::span<star::byte> candidate{};
-                std::size_t candidate_index = 0;
+                const auto data = std::assume_aligned<star::max_alignment_v>(storage.data());
 
-                for(const auto& [index, free] : rng | ranges::views::enumerate)
+                if(auto& front = frees_.front(); front == empty_rng) front = {data, data + Size};
+
+                std::span<star::byte> allocation_candidate{};
+                const auto end = frees_.end();
+                auto candidate_iter = end;
+
+                for(auto it = frees_.begin(); it != end; ++it)
                 {
+                    auto& free = *it;
                     if(free.empty()) continue;
 
                     const auto& aligned = align(alignment, bytes, std::span{free.begin, free.end});
 
                     if(aligned.empty() ||
-                       !candidate_free.empty() && (free.size() >= candidate_free.size()))
+                       (candidate_iter != frees_.cend()) && (free.size() >= candidate_iter->size()))
                         continue;
 
-                    candidate = aligned;
-                    candidate_index = index;
+                    allocation_candidate = aligned;
+                    candidate_iter = it;
                 }
 
-                return std::pair{candidate, candidate_index};
-            }
+                if(allocation_candidate.empty()) return Size;
 
-        public:
-            constexpr auto operator()(
-                const std::size_t bytes,
-                const std::size_t alignment,
-                std::array<star::byte, Size>& storage
-            ) noexcept
-                requires(Size >= sizeof(mem_rng))
-            {
-                const auto data = std::assume_aligned<star::max_alignment_v>(storage.data());
-
-                if(frees_.empty())
-                {
-                    if(Size < sizeof_mem_rng) return Size;
-                    frees_ = {
-                        ::new(data) mem_rng{
-                            data + sizeof_mem_rng,
-                            data + Size,
-                        },
-                        1
-                    };
-                }
-
-                const auto [candidate, i] = best_fit(bytes, alignment, frees_);
-
-                return !candidate.empty() && try_allocate_free(i, {candidate, candidate + bytes}) ?
-                    Size :
-                    candidate - data;
+                allocate_impl(candidate_iter, allocation_candidate);
+                return allocation_candidate - data;
             }
 
             constexpr void operator()(
-                const void* const ptr,
+                void* const ptr,
                 const std::size_t bytes,
                 const std::size_t alignment,
                 std::array<star::byte, Size>& storage
             ) noexcept
             {
-                const auto data = std::assume_aligned<star::max_alignment_v>(storage.data());
-                auto info_ptr = std::launder(reinterpret_cast<mem_rng*>(data));
+                Expects(is_align(alignment, bytes, ptr));
 
-                for(; info_ptr != nullptr; info_ptr = info_ptr->next_info())
-                    if(info_ptr->allocation_start() == ptr) break;
+                const auto byte_ptr = star::pointer_cast<star::byte>(ptr);
+                const mem_rng deallocated{byte_ptr, byte_ptr + bytes};
+                const auto found = std::ranges::lower_bound(
+                    frees_,
+                    deallocated.end,
+                    {},
+                    [](const auto& rng) { return rng.begin; }
+                );
 
-                Expects(info_ptr != nullptr);
-                Expects(info_ptr->size == bytes);
-                std::assume
+                if(found == frees_.cbegin())
+                {
+                    if(auto& front = frees_.front(); front.begin == deallocated.end)
+                    {
+                        Expects(deallocated.begin >= storage.data());
+                        front.begin = deallocated.begin;
+                        return;
+                    }
+                }
+                else if(try_append(found - 1, found, deallocated)) return;
+
+                frees_.emplace(found, deallocated);
             }
-        }; // NOLINTEND(*-reinterpret-*, *-pointer-arithmetic)
+        }; // NOLINTEND(*-pointer-arithmetic)
     };
 }
 
@@ -162,11 +179,23 @@ namespace voinst
 {
     template<
         std::size_t Size,
-        typename Policy = details::static_memory_resource_traits<Size>::default_policy>
+        std::constructible_from<pmr::memory_resource*> Policy =
+            details::static_memory_resource_traits<Size>::default_policy>
+        requires std::invocable<
+                     Policy&,
+                     const std::size_t,
+                     const std::size_t,
+                     std::array<star::byte, Size>&> &&
+        std::invocable<
+                     Policy&,
+                     void* const,
+                     const std::size_t,
+                     const std::size_t,
+                     std::array<star::byte, Size>&>
     class static_memory_resource : pmr::memory_resource
     {
         alignas(std::max_align_t) std::array<star::byte, Size> storage_{};
-        Policy policy_{};
+        Policy policy_;
 
     protected:
         constexpr void* do_allocate(const std::size_t bytes, const std::size_t alignment) override
@@ -182,31 +211,32 @@ namespace voinst
             do_deallocate(void* const ptr, const std::size_t bytes, const std::size_t alignment)
                 override
         {
-            star::byte* data_ptr = nullptr;
-
-            if(std::is_constant_evaluated())
-                for(std::size_t i = 0; i < Size; ++i)
-                {
-                    auto cur_ptr = &storage_[i];
-                    if(cur_ptr == ptr)
-                    {
-                        data_ptr = cur_ptr;
-                        break;
-                    }
-                }
-            else
-            {
-                Expects(star::is_between(ptr, storage_.data(), &storage_.back()));
-                data_ptr = star::pointer_cast<star::byte>(ptr);
-            }
-
-            std::invoke(policy_, data_ptr, bytes, alignment, storage_);
+            std::invoke(policy_, ptr, bytes, alignment, storage_);
         }
 
         [[nodiscard]] constexpr bool do_is_equal(const pmr::memory_resource& other) //
             const noexcept override
         {
             return star::to_void_pointer(this) == &other;
+        }
+
+    public:
+        constexpr explicit static_memory_resource(
+            const gsl::not_null<pmr::memory_resource*> upstream = pmr::get_default_resource()
+        ):
+            policy_(upstream.get())
+        {
+        }
+
+        static_memory_resource(const static_memory_resource&) = delete;
+        static_memory_resource(static_memory_resource&&) = delete;
+        static_memory_resource& operator=(const static_memory_resource&) = delete;
+        static_memory_resource& operator=(static_memory_resource&&) = delete;
+        ~static_memory_resource() override = default;
+
+        [[nodiscard]] constexpr auto upstream_resource() const noexcept
+        {
+            return policy_.upstream();
         }
     };
 }
