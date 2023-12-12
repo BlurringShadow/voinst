@@ -1,4 +1,4 @@
-#include "namespace_alias.h"
+#include "alias.h"
 
 namespace voinst
 {

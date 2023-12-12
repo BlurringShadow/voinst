@@ -1,10 +1,13 @@
 #pragma once
 
+#include <thread>
 #include <unordered_set>
+#include <stdsharp/synchronizer.h>
+#include <stdsharp/lazy.h>
 
 #include <mimalloc.h>
 
-#include "namespace_alias.h"
+#include "alias.h"
 
 namespace voinst
 {
@@ -12,7 +15,7 @@ namespace voinst
     {
         void operator()(void* const p) const noexcept { mi_free(p); }
 
-        void operator()(std::nullptr_t) = delete;
+        void operator()(nullptr_t) = delete;
     };
 
     template<typename T>
@@ -25,177 +28,53 @@ namespace voinst
         allocator() = default;
 
         template<typename U>
-        constexpr allocator(const allocator<U>) noexcept
+        constexpr allocator(const allocator<U> /*unused*/) noexcept
         {
         }
 
-        [[nodiscard]] constexpr auto
-            allocate(const std::size_t n, const void* const hint = nullptr) const
+        [[nodiscard]] constexpr auto allocate(const size_t n) const
         {
-            const auto size = n * sizeof(T);
-
-            return hint == nullptr ?
-                star::pointer_cast<value_type>(mi_new_aligned(size, alignof(T))) :
-                star::pointer_cast<value_type>( //
-                    mi_realloc_aligned(
-                        const_cast<void*>(hint), // NOLINT(*-const-cast)
-                        size,
-                        alignof(T)
-                    )
-                );
+            return mi_new_aligned(n * sizeof(T), alignof(T));
         }
 
-        constexpr void deallocate(T* const p, const std::size_t) const noexcept { mi_free(p); }
-
-        constexpr bool operator==(const allocator) const noexcept { return true; }
-    };
-
-    class allocation
-    {
-        std::size_t size_;
-        std::size_t alignment_;
-        void* ptr_;
-
-    public:
-        allocation(const std::size_t bytes, const std::align_val_t alignment, void* const ptr):
-            size_(bytes), alignment_(star::auto_cast(alignment)), ptr_(ptr)
+        constexpr void deallocate(T* const p, const size_t n) const noexcept
         {
+            mi_free_size_aligned(p, n * sizeof(T), alignof(T));
         }
 
-        [[nodiscard]] constexpr void* get() const noexcept { return ptr_; }
-
-        [[nodiscard]] constexpr std::size_t size() const noexcept { return size_; }
-
-        [[nodiscard]] constexpr std::size_t alignment() const noexcept { return alignment_; }
-
-        [[nodiscard]] bool operator==(const allocation& other) const = default;
-
-    protected:
-        [[nodiscard]] constexpr auto& get() noexcept { return ptr_; }
-    };
-
-    class scoped_allocation : public allocation
-    {
-    public:
-        using allocation::allocation;
-
-        scoped_allocation(
-            const std::size_t bytes,
-            const std::align_val_t alignment,
-            const bool allocate = true
-        ):
-            allocation(
-                bytes,
-                alignment,
-                allocate ? mi_new_aligned(bytes, star::auto_cast(alignment)) : nullptr
-            )
-        {
-        }
-
-        void allocate()
-        {
-            auto& ptr = get();
-            if(ptr == nullptr) ptr = mi_new_aligned(size(), alignment());
-        }
-
-        ~scoped_allocation()
-        {
-            auto& ptr = get();
-            if(ptr != nullptr) mi_free(std::exchange(ptr, nullptr));
-        }
-
-        scoped_allocation(const scoped_allocation&) = delete;
-        scoped_allocation(scoped_allocation&&) = default;
-        scoped_allocation& operator=(const scoped_allocation&) = delete;
-        scoped_allocation& operator=(scoped_allocation&&) = default;
-    };
-}
-
-namespace std
-{
-    template<>
-    struct hash<::voinst::allocation>
-    {
-        [[nodiscard]] size_t operator()(const ::voinst::allocation& alloc) const noexcept
-        {
-            return hash<const void*>{}(alloc.get());
-        }
-    };
-
-    template<>
-    struct hash<::voinst::scoped_allocation> : hash<::voinst::allocation>
-    {
-        using is_transparent = void;
+        constexpr bool operator==(const allocator /*unused*/) const noexcept { return true; }
     };
 }
 
 namespace voinst
 {
-    namespace details
+    class memory_resource : public std::pmr::memory_resource
     {
-        template<
-            typename CharAlloc,
-            typename Alloc = star::allocator_traits<CharAlloc>:: //
-            template rebind_alloc<star::all_aligned> // clang-format off
-        > // clang-format on
-        class resource_adaptor_impl : public pmr::memory_resource, star::value_wrapper<Alloc>
+        using heap = mi_heap_t;
+
+        struct heap_deleter
         {
-            using allocator_type = Alloc;
-
-            using base = star::value_wrapper<allocator_type>;
-
-            using base::v;
-
-            using traits = star::allocator_traits<allocator_type>;
-
-        public:
-            resource_adaptor_impl() = default;
-
-            constexpr resource_adaptor_impl(const CharAlloc& alloc) noexcept: base(alloc) {}
-
-            [[nodiscard]] constexpr CharAlloc get_allocator() const noexcept { return v; }
-
-        private:
-            static constexpr auto to_aligned_size(const std::size_t bytes) noexcept
-            {
-                constexpr auto max_align_v = star::max_alignment_v;
-                constexpr auto expr0 = max_align_v - 1;
-                return (bytes + expr0) & ~expr0;
-            }
-
-            [[nodiscard]] constexpr void*
-                do_allocate(const std::size_t bytes, const std::size_t) override
-            {
-                return star::auto_cast(traits::allocate(v, to_aligned_size(bytes)));
-            }
-
-            constexpr void
-                do_deallocate(void* const p, const std::size_t bytes, const std::size_t) noexcept
-                override
-            {
-                traits::deallocate(v, static_cast<star::all_aligned*>(p), to_aligned_size(bytes));
-            }
-
-            [[nodiscard]] constexpr bool do_is_equal(const pmr::memory_resource& other) //
-                const noexcept override
-            {
-                if(static_cast<const pmr::memory_resource*>(this) == &other) return true;
-
-                const auto ptr = dynamic_cast<const resource_adaptor_impl*>(&other);
-
-                if(ptr == nullptr) return false;
-
-                if constexpr(traits::is_always_equal::value) return true;
-                else return v == ptr->v;
-            }
+            void operator()(heap* const p) const noexcept { mi_heap_destroy(p); }
         };
-    }
 
-    template<star::allocator_req Alloc>
-    using resource_adaptor = details:: //
-        resource_adaptor_impl<typename star::allocator_traits<Alloc>::template rebind_alloc<char>>;
+        using thread_id = std::thread::id;
+        using heap_ptr = std::unique_ptr<heap, heap_deleter>;
 
-    using memory_resource = resource_adaptor<allocator<char>>;
+        struct heap_getter
+        {
+            heap_ptr operator()() const { return heap_ptr{mi_heap_new()}; }
+        };
+
+        using lazy_heap = star::lazy_value<heap_getter>;
+
+        star::synchronizer<std::unordered_map<
+            thread_id,
+            heap_ptr,
+            std::hash<thread_id>,
+            std::ranges::equal_to,
+            allocator<std::pair<const thread_id, heap_ptr>>>>
+            heaps_{};
+    };
 
     inline auto& get_default_resource()
     {

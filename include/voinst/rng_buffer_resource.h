@@ -3,11 +3,12 @@
 #include <stdsharp/containers/actions.h>
 
 #include "aligned.h"
+#include "voinst/iterator.h"
 
 namespace voinst::details
 {
-    template<std::size_t Size>
-    struct static_memory_resource_traits
+    template<typename Rng>
+    struct rng_buffer_resource_traits
     {
         class default_policy // NOLINTBEGIN(*-pointer-arithmetic)
         {
@@ -21,7 +22,7 @@ namespace voinst::details
                 constexpr auto empty() const noexcept { return end == begin; }
             } empty_rng{};
 
-            pmr::vector<mem_rng> frees_;
+            pmr::vector<mem_rng> frees_{1, empty_rng};
 
             constexpr auto allocate_impl(const auto it, const std::span<star::byte>& candidate)
             {
@@ -97,6 +98,8 @@ namespace voinst::details
             }
 
         public:
+            default_policy() = default;
+
             constexpr explicit default_policy(pmr::memory_resource* const upstream):
                 frees_(1, empty_rng, upstream)
             {
@@ -105,15 +108,13 @@ namespace voinst::details
 
             constexpr auto upstream() const noexcept { return frees_.get_allocator().resource(); }
 
-            constexpr std::size_t operator()(
-                const std::size_t bytes,
-                const std::size_t alignment,
-                std::array<star::byte, Size>& storage
-            )
+            constexpr void*
+                operator()(const size_t bytes, const size_t alignment, Rng& buffer)
             {
-                const auto data = std::assume_aligned<star::max_alignment_v>(storage.data());
+                const auto data = std::ranges::data(buffer);
+                const auto size = std::ranges::size(buffer);
 
-                if(auto& front = frees_.front(); front == empty_rng) front = {data, data + Size};
+                if(auto& front = frees_.front(); front == empty_rng) front = {data, data + size};
 
                 std::span<star::byte> allocation_candidate{};
                 const auto end = frees_.end();
@@ -124,32 +125,36 @@ namespace voinst::details
                     auto& free = *it;
                     if(free.empty()) continue;
 
-                    const auto& aligned = align(alignment, bytes, std::span{free.begin, free.end});
+                    const auto& span = align(alignment, bytes, std::span{free.begin, free.end});
 
-                    if(aligned.empty() ||
+                    if(span.empty() ||
                        (candidate_iter != frees_.cend()) && (free.size() >= candidate_iter->size()))
                         continue;
 
-                    allocation_candidate = aligned;
+                    allocation_candidate = span;
                     candidate_iter = it;
                 }
 
-                if(allocation_candidate.empty()) return Size;
+                if(allocation_candidate.empty()) return size;
 
                 allocate_impl(candidate_iter, allocation_candidate);
-                return allocation_candidate - data;
+                return allocation_candidate.data();
             }
 
-            constexpr void operator()(
+            constexpr bool operator()(
                 void* const ptr,
-                const std::size_t bytes,
-                const std::size_t alignment,
-                std::array<star::byte, Size>& storage
+                const size_t bytes,
+                const size_t alignment,
+                Rng& buffer
             ) noexcept
             {
                 Expects(is_align(alignment, bytes, ptr));
-
                 const auto byte_ptr = star::pointer_cast<star::byte>(ptr);
+
+                if(const auto data = std::ranges::data(buffer);
+                   !is_iter_in(data, data + std::ranges::size(buffer), byte_ptr))
+                    return false;
+
                 const mem_rng deallocated{byte_ptr, byte_ptr + bytes};
                 const auto found = std::ranges::lower_bound(
                     frees_,
@@ -162,14 +167,15 @@ namespace voinst::details
                 {
                     if(auto& front = frees_.front(); front.begin == deallocated.end)
                     {
-                        Expects(deallocated.begin >= storage.data());
                         front.begin = deallocated.begin;
-                        return;
+                        return true;
                     }
                 }
-                else if(try_append(found - 1, found, deallocated)) return;
+                else if(try_append(found - 1, found, deallocated)) return true;
 
                 frees_.emplace(found, deallocated);
+
+                return true;
             }
         }; // NOLINTEND(*-pointer-arithmetic)
     };
@@ -178,40 +184,33 @@ namespace voinst::details
 namespace voinst
 {
     template<
-        std::size_t Size,
-        std::constructible_from<pmr::memory_resource*> Policy =
-            details::static_memory_resource_traits<Size>::default_policy>
-        requires std::invocable<
-                     Policy&,
-                     const std::size_t,
-                     const std::size_t,
-                     std::array<star::byte, Size>&> &&
-        std::invocable<
-                     Policy&,
-                     void* const,
-                     const std::size_t,
-                     const std::size_t,
-                     std::array<star::byte, Size>&>
-    class static_memory_resource : pmr::memory_resource
+        std::ranges::contiguous_range Rng,
+        typename Policy = details::rng_buffer_resource_traits<Rng>::default_policy>
+        requires requires(const size_t s, Rng& storage) {
+            requires std::ranges::sized_range<Rng>;
+            requires star::
+                invocable_r<Policy&, void*, decltype(s), decltype(s), decltype(storage)>;
+            requires std::
+                predicate<Policy&, void* const, decltype(s), decltype(s), decltype(storage)>;
+        }
+    class rng_buffer_resource : pmr::memory_resource
     {
-        alignas(std::max_align_t) std::array<star::byte, Size> storage_{};
-        Policy policy_;
+        Rng buffer_{};
+        Policy policy_{};
 
     protected:
-        constexpr void* do_allocate(const std::size_t bytes, const std::size_t alignment) override
+        constexpr void* do_allocate(const size_t bytes, const size_t alignment) override
         {
-            auto index = std::invoke(policy_, bytes, alignment, storage_);
-
-            if(index == storage_.size()) throw std::bad_alloc{};
-
-            return &storage_[index];
+            const auto ptr = std::invoke(policy_, bytes, alignment, buffer_);
+            return ptr == nullptr ? upstream_resource()->allocate(bytes, alignment) : ptr;
         }
 
         constexpr void
-            do_deallocate(void* const ptr, const std::size_t bytes, const std::size_t alignment)
+            do_deallocate(void* const ptr, const size_t bytes, const size_t alignment)
                 override
         {
-            std::invoke(policy_, ptr, bytes, alignment, storage_);
+            if(!std::invoke(policy_, ptr, bytes, alignment, buffer_))
+                upstream_resource()->deallocate(ptr, bytes, alignment);
         }
 
         [[nodiscard]] constexpr bool do_is_equal(const pmr::memory_resource& other) //
@@ -221,22 +220,29 @@ namespace voinst
         }
 
     public:
-        constexpr explicit static_memory_resource(
-            const gsl::not_null<pmr::memory_resource*> upstream = pmr::get_default_resource()
-        ):
-            policy_(upstream.get())
+        using policy = Policy;
+
+        rng_buffer_resource() = default;
+
+        constexpr explicit rng_buffer_resource(const gsl::not_null<pmr::memory_resource*> upstream)
+            requires std::constructible_from<Policy, pmr::memory_resource*>
+            : policy_(upstream.get())
         {
         }
 
-        static_memory_resource(const static_memory_resource&) = delete;
-        static_memory_resource(static_memory_resource&&) = delete;
-        static_memory_resource& operator=(const static_memory_resource&) = delete;
-        static_memory_resource& operator=(static_memory_resource&&) = delete;
-        ~static_memory_resource() override = default;
+        rng_buffer_resource(const rng_buffer_resource&) = delete;
+        rng_buffer_resource(rng_buffer_resource&&) = delete;
+        rng_buffer_resource& operator=(const rng_buffer_resource&) = delete;
+        rng_buffer_resource& operator=(rng_buffer_resource&&) = delete;
+        ~rng_buffer_resource() override = default;
 
         [[nodiscard]] constexpr auto upstream_resource() const noexcept
         {
             return policy_.upstream();
         }
+
+        [[nodiscard]] constexpr auto& buffer() const noexcept { return buffer_; }
+
+        [[nodiscard]] constexpr auto& buffer() noexcept { return buffer_; }
     };
 }

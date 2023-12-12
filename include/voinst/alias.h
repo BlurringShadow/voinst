@@ -11,4 +11,8 @@ namespace voinst
     namespace gsl = ::gsl;
     namespace ranges = ::ranges;
     namespace ctre = ::ctre;
+
+    using size_t = std::size_t;
+    using nullptr_t = std::nullptr_t;
+    using byte = star::byte;
 }
