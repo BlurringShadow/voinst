@@ -1,5 +1,5 @@
 {
-  "name": "observable-memory",
+  "name": "voinst",
   "version": "0.1.0",
   "dependencies": [
     "mimalloc",
@@ -12,8 +12,8 @@
     "registries": [
       {
         "kind": "git",
-        "repository": "https://github.com/BlurringShadow/vcpkg-registry.git",
-        "baseline": "a477603bbcd0b7091e2486bdfdf8e0edf8e9bdcc",
+        "repository": "https://github.com/c0nstexpr/vcpkg-registry.git",
+        "baseline": "eaec29888b8b69c252ae5ff37870dcc99b17b40d",
         "packages": [
           "stdsharp"
         ]

@@ -2,8 +2,7 @@
 
 #include <stdsharp/containers/actions.h>
 
-#include "aligned.h"
-#include "voinst/iterator.h"
+#include "alias.h"
 
 namespace voinst::details
 {
@@ -108,8 +107,7 @@ namespace voinst::details
 
             constexpr auto upstream() const noexcept { return frees_.get_allocator().resource(); }
 
-            constexpr void*
-                operator()(const size_t bytes, const size_t alignment, Rng& buffer)
+            constexpr void* operator()(const size_t bytes, const size_t alignment, Rng& buffer)
             {
                 const auto data = std::ranges::data(buffer);
                 const auto size = std::ranges::size(buffer);
@@ -125,7 +123,8 @@ namespace voinst::details
                     auto& free = *it;
                     if(free.empty()) continue;
 
-                    const auto& span = align(alignment, bytes, std::span{free.begin, free.end});
+                    const auto& span =
+                        star::align(alignment, bytes, std::span{free.begin, free.end});
 
                     if(span.empty() ||
                        (candidate_iter != frees_.cend()) && (free.size() >= candidate_iter->size()))
@@ -148,11 +147,11 @@ namespace voinst::details
                 Rng& buffer
             ) noexcept
             {
-                Expects(is_align(alignment, bytes, ptr));
+                Expects(star::is_align(alignment, bytes, ptr));
                 const auto byte_ptr = star::pointer_cast<star::byte>(ptr);
 
                 if(const auto data = std::ranges::data(buffer);
-                   !is_iter_in(data, data + std::ranges::size(buffer), byte_ptr))
+                   !star::is_iter_in(data, data + std::ranges::size(buffer), byte_ptr))
                     return false;
 
                 const mem_rng deallocated{byte_ptr, byte_ptr + bytes};
@@ -188,8 +187,7 @@ namespace voinst
         typename Policy = details::rng_buffer_resource_traits<Rng>::default_policy>
         requires requires(const size_t s, Rng& storage) {
             requires std::ranges::sized_range<Rng>;
-            requires star::
-                invocable_r<Policy&, void*, decltype(s), decltype(s), decltype(storage)>;
+            requires star::invocable_r<Policy&, void*, decltype(s), decltype(s), decltype(storage)>;
             requires std::
                 predicate<Policy&, void* const, decltype(s), decltype(s), decltype(storage)>;
         }
@@ -206,8 +204,7 @@ namespace voinst
         }
 
         constexpr void
-            do_deallocate(void* const ptr, const size_t bytes, const size_t alignment)
-                override
+            do_deallocate(void* const ptr, const size_t bytes, const size_t alignment) override
         {
             if(!std::invoke(policy_, ptr, bytes, alignment, buffer_))
                 upstream_resource()->deallocate(ptr, bytes, alignment);
