@@ -34,22 +34,16 @@ runs:
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
       with:
-        vcpkgGitCommitId: 0ccb3d11406922bef1dcc29002f68f633a321f19
+        vcpkgGitCommitId: c75ff8cf3b784f67aa614552f32a6b2c7b9d8efc
         vcpkgDirectory: ${{ inputs.vcpkg-root }}
+        doNotCache: false
 
     - name: Run before cmake build
       run: ${{ inputs.before-build }}
       shell: bash
 
-    - name: Cache vcpkg builds
-      uses: actions/cache@v3
-      with:
-        path: |
-          ${{ inputs.build-dir }}/vcpkg_installed
-        key: ${{ runner.os }}-${{ inputs.build-type }}
-
     - name: Install dependencies and generate project files
-      run: cmake -S "${{ github.workspace }}" -B "${{ inputs.build-dir }}" -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -DCMAKE_TOOLCHAIN_FILE="${{ inputs.vcpkg-root }}/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=${{ inputs.build-type }} ${{ inputs.config-option }}
+      run: cmake --fresh -S "${{ github.workspace }}" -B "${{ inputs.build-dir }}" -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -DCMAKE_TOOLCHAIN_FILE="${{ inputs.vcpkg-root }}/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=${{ inputs.build-type }} ${{ inputs.config-option }}
       shell: bash
 
     - uses: SimenB/github-actions-cpu-cores@v1

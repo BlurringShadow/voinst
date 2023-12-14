@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "dependencies": [
     "mimalloc",
-    "ms-gsl",
     "stdsharp",
     "catch2"
   ],

@@ -11,7 +11,7 @@ Checks: # enabled
     performance-*,
     portability-*,
     readability-*,'
-    # disabled useless checks
+  # disabled useless checks
   - '-*-logical-op-parentheses,
     -*-dangling-else,
     -*-use-trailing-return-type,

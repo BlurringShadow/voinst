@@ -16,10 +16,10 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [ubuntu-22.04]
+        os: [ubuntu-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Fetch Clang
         uses: ./.github/actions/apt-fetch-clang
@@ -73,6 +73,8 @@ jobs:
         uses: ./.github/actions/update-msvc
 
       - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          toolset: 14.38
 
       - name: CMake build and test (Debug)
         uses: ./.github/actions/cmake-build-and-test

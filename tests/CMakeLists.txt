@@ -11,7 +11,7 @@ include(Catch)
 #
 # Set the sources for the unit tests and add the executable(s)
 #
-set(src src/memory_resource.cpp)
+set(src src/resource/memory_resource.cpp src/resource/rng_buffer_resource.cpp)
 
 config_lib(${PROJECT_NAME}Lib INTERFACE)
 

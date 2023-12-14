@@ -1,11 +1,9 @@
 name: Update MSVC toolchain on Windows
-description: Update Visual C++ build tools on Windows
 
 runs:
   using: composite
 
   steps:
-    - run: |
-        dotnet tool update -g dotnet-vs;
-        vs update all;
+    - run: ./update-vs.ps1
+      working-directory: ${{ github.action_path }}
       shell: pwsh

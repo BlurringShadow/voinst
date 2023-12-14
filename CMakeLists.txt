@@ -5,17 +5,15 @@ project(
   VERSION 0.1.0
   LANGUAGES CXX)
 
-find_package(Microsoft.GSL CONFIG REQUIRED)
 find_package(mimalloc CONFIG REQUIRED)
 find_package(stdsharp CONFIG REQUIRED)
 include(stdsharp/Utils)
 
 config_lib(voinst INTERFACE std 23)
-target_link_libraries(voinst INTERFACE Microsoft.GSL::GSL mimalloc
-                                                  stdsharp::stdsharp)
+target_link_libraries(voinst INTERFACE mimalloc stdsharp::stdsharp)
 
 target_install(voinst COMPATIBILITY SameMajorVersion DEPENDENCIES
-               Microsoft.GSL;mimalloc;stdsharp;)
+               mimalloc;stdsharp;)
 
 get_directory_property(is_subproject PARENT_DIRECTORY)
 
