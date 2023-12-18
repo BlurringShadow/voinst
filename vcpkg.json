@@ -12,7 +12,7 @@
       {
         "kind": "git",
         "repository": "https://github.com/c0nstexpr/vcpkg-registry.git",
-        "baseline": "eaec29888b8b69c252ae5ff37870dcc99b17b40d",
+        "baseline": "2fad304b571949cc5eaf916d42d077e91af190d8",
         "packages": [
           "stdsharp"
         ]
